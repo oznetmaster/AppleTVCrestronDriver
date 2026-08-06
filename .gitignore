@@ -48,3 +48,10 @@ Desktop.ini
 ## Local diagnostic/scratch files (should never be committed)
 _diag*
 _schema.xsd
+
+## Diagnostic/exploratory scaffolding projects and scripts (not part of the
+## shipped driver; used only for local investigation/troubleshooting)
+AppleTVCrestronPlatformProof/
+AppleTVManifestTest/
+AppleTVCrestronDriver/FetchLatestLog.ps1
+AppleTVCrestronDriver/LiveTailLog.ps1
