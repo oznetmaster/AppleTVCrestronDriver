@@ -55,6 +55,10 @@ AppleTVCrestronPlatformProof/
 AppleTVManifestTest/
 AppleTVCrestronDriver/FetchLatestLog.ps1
 AppleTVCrestronDriver/LiveTailLog.ps1
+AppleTVCrestronDriver/Deploy.ps1
+AppleTVCrestronDriver/BumpDriverVersion.ps1
+AppleTVCrestronDriver/AppleTVCrestronDriver.pre-control.json
+AppleTVCrestronDriver/AppleTVCrestronDriver.reserve.json
 
 ## Stray NuGet-restored/build-output binaries that ended up at the solution
 ## root; these are not project references and should never be committed
