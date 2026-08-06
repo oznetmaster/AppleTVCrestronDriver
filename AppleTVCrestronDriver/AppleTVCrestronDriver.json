@@ -1,0 +1,95 @@
+{
+	"CrestronSerialDeviceApi": {
+		"UserAttributes": [
+			{
+				"TypeName": "Custom",
+				"ParameterId": "AppleTvName",
+				"Label": "Apple TV Name",
+				"Description": "The Apple TV name supplied to the Companion Link session.",
+				"Persistent": true,
+				"RequiredForConnection": "None",
+				"Data": {
+					"DataType": "String",
+					"Mask": "",
+					"DefaultValue": ""
+				}
+			}
+		],
+		"GeneralInformation": {
+			"SupportedSeries": ["Apple TV"],
+			"BaseModel": "Apple TV Companion",
+			"Description": "Apple TV Companion Link Video Server",
+			"SdkVersion": "27.0.24",
+			"Guid": "725C8A9E-1A85-4FC2-9B95-D20A488A4762",
+			"DeviceType": "Video Server",
+			"Manufacturer": "Apple",
+			"VersionDate": "2026-08-06 17:38:34.115",
+			"Developer": {
+				"PhoneNumber": "",
+				"Contact": "Neil Colvin",
+				"Website": "",
+				"Email": "",
+				"Company": "Neil Colvin"
+			},
+			"DriverVersion": "1.0.000.0090",
+			"DependencyGroup": "",
+			"SupportedModels": ["Apple TV Companion"]
+		},
+		"DeviceSupport": {
+			"SupportsArrowKeys": true,
+			"SupportsRepeat": true,
+			"SupportsDiscretePower": true,
+			"SupportsExit": true,
+			"SupportsInfo": true,
+			"SupportsSelect": true,
+			"SupportsHome": true,
+			"SupportsMenu": true,
+			"SupportsPlayPause": true,
+			"SupportsWarmUpTime": true
+		},
+		"DeviceSupport2": [],
+		"Api": {
+			"Communication": {
+				"CommunicationType": 5,
+				"Protocol": -1,
+				"Baud": -1,
+				"Parity": -1,
+				"HwHandshake": -1,
+				"SwHandshake": -1,
+				"DataBits": 0,
+				"StopBits": -1,
+				"IpProtocol": 0,
+				"Port": 9999,
+				"EnableAutoPolling": false,
+				"EnableAutoReconnect": false,
+				"TimeBetweenCommands": 250,
+				"ResponseTimeout": 1000,
+				"WaitForResponse": false,
+				"IsUserAdjustable": false,
+				"Authentication": { "Type": "None", "Required": false },
+				"IsSecure": false,
+				"UserAdjustableProperties": [],
+				"DeviceId": 0
+			},
+			"StandardCommands": {
+				"Select": { "StandardCommand": 10700, "Command": "" },
+				"Home": { "StandardCommand": 11000, "Command": "" },
+				"Menu": { "StandardCommand": 15200, "Command": "" },
+				"Back": { "StandardCommand": 16400, "Command": "" },
+				"PowerOff": { "StandardCommand": 6601, "Command": "" },
+				"PowerOn": { "StandardCommand": 6602, "Command": "" }
+			},
+			"CustomCommands": [],
+			"ArrowKeys": [0, 1, 2, 3],
+			"ColorButtons": [],
+			"LetterButtons": [],
+			"PowerWaitPeriod": { "UseLocalWarmupTimer": false, "WarmUpTime": 60, "UseLocalCooldownTimer": true, "CoolDownTime": 5 },
+			"AudioInOut": { "Inputs": [], "Outputs": [] },
+			"VideoInOut": { "Inputs": [], "Outputs": [{ "type": 32766, "description": "HDMI", "connector": 20, "friendlyName": "HDMI" }] },
+			"Feedback": {
+				"Header": "",
+				"PowerFeedback": { "Feedback": {}, "GroupHeader": "*DUMMY*" }
+			}
+		}
+	}
+}

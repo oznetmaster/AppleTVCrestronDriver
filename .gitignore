@@ -1,0 +1,50 @@
+
+## Crestron driver build artifacts
+*.pkg
+*.cpz
+
+## Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Build output
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+out/
+
+## NuGet
+*.nupkg
+*.snupkg
+packages/
+!**/packages/build/
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## DocFX generated output (source files in docs/ are committed; generated site files are not)
+docs/api/
+docs/fonts/
+docs/obj/
+docs/_site/
+docs/_pdf/
+docs/styles/
+docs/manifest.json
+docs/index.json
+docs/xrefmap.yml
+
+## OS
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Visual Studio project backup files
+*.Backup.tmp
+
+## Local diagnostic/scratch files (should never be committed)
+_diag*
+_schema.xsd

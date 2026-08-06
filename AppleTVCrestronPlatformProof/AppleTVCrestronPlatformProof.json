@@ -1,0 +1,52 @@
+{
+	"CrestronSerialDeviceApi": {
+		"DeviceSupport": {},
+		"DeviceSupport2": [],
+		"GeneralInformation": {
+			"DeviceType": "Platform",
+			"Manufacturer": "Apple",
+			"BaseModel": "Apple TV Platform Proof",
+			"VersionDate": "2026-08-06 13:33:03.615",
+			"DriverVersion": "0.1.000.0028",
+			"SdkVersion": "27.0.24",
+			"Description": "Proof driver that creates independently addressable Video Server children.",
+			"Guid": "770AAEAF-7D8F-4CCD-805F-2C5DAAB165D6",
+			"SupportedSeries": [
+				"Apple TV"
+			],
+			"DependencyGroup": "",
+			"Developer": {
+				"Company": "Neil Colvin",
+				"Contact": "Neil Colvin",
+				"Email": "",
+				"Website": "",
+				"PhoneNumber": ""
+			},
+			"SupportedModels": [
+				"Apple TV Platform Proof"
+			]
+		},
+		"Api": {
+			"SupportsConfigurationUpdate": false,
+			"Communication": {
+				"CommunicationType": 1,
+				"Port": 49152,
+				"TimeBetweenCommands": 0,
+				"ResponseTimeout": 10000,
+				"IpProtocol": 0,
+				"IsUserAdjustable": false,
+				"Authentication": {
+					"Type": "None",
+					"Required": false
+				}
+			},
+			"Feedback": {
+				"MinimumResponseTime": 80000,
+				"MaximumResponseTime": 160000
+			}
+		},
+		"UserAttributes": []
+		,
+		"Dependencies": []
+	}
+}

@@ -1,0 +1,12 @@
+<Project>
+	<PropertyGroup>
+		<ManifestUtilExe>C:\Applications (x86)\Crestron\Driver SDK\ManifestUtil\ManifestUtil.exe</ManifestUtilExe>
+		<LocalCrestronSdkLibDir>C:\Applications (x86)\Crestron\Driver SDK\Libraries</LocalCrestronSdkLibDir>
+		<LocalNet472ReferenceAssemblies>C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2</LocalNet472ReferenceAssemblies>
+		<LocalNetFxRuntimeDir>C:\Windows\Microsoft.NET\Framework64\v4.0.30319</LocalNetFxRuntimeDir>
+		<DeployAfterBuild Condition="'$(DeployAfterBuild)' == ''">true</DeployAfterBuild>
+		<CrestronHomeIP Condition="'$(CrestronHomeIP)' == ''"></CrestronHomeIP>
+		<CrestronHomeFtpUser Condition="'$(CrestronHomeFtpUser)' == ''">admin</CrestronHomeFtpUser>
+		<CrestronHomeSftpPassword Condition="'$(CrestronHomeSftpPassword)' == ''"></CrestronHomeSftpPassword>
+	</PropertyGroup>
+</Project>

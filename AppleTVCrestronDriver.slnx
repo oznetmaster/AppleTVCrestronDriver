@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="LICENSE" />
+  </Folder>
+  <Project Path="../AppleTVControlLibrary/src/AppleTV.Companion.Discovery/AppleTV.Companion.Discovery.csproj">
+    <Build Project="false" />
+  </Project>
+  <Project Path="../AppleTVControlLibrary/src/AppleTV.Companion/AppleTV.Companion.csproj">
+    <Build Project="false" />
+  </Project>
+  <Project Path="AppleTVCrestronDriver/AppleTVCrestronDriver.csproj" />
+  <Project Path="AppleTVCrestronPlatformProof/AppleTVCrestronPlatformProof.csproj" />
+  <Project Path="AppleTVManifestTest/AppleTVManifestTest.csproj" />
+</Solution>

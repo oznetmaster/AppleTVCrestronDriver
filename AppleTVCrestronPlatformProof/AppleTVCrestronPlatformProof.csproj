@@ -1,0 +1,130 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net472</TargetFramework>
+		<OutputType>Library</OutputType>
+		<AssemblyName>AppleTVCrestronPlatformProof</AssemblyName>
+		<RootNamespace>AppleTV.CrestronPlatformProof</RootNamespace>
+		<LangVersion>latest</LangVersion>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+		<GenerateDocumentationFile>true</GenerateDocumentationFile>
+		<NoWarn>$(NoWarn);ILLink1005;CS1591</NoWarn>
+		<Nullable>disable</Nullable>
+		<IsPackable>true</IsPackable>
+		<IncludeBuildOutput>false</IncludeBuildOutput>
+		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+		<PackageType>CrestronHomeDriver</PackageType>
+		<PackageId>CrestronHomeDriver.Apple.AppleTV.PlatformProof</PackageId>
+		<Authors>Neil Colvin</Authors>
+		<Company>Neil Colvin</Company>
+		<Description>Crestron Home RAD Platform proof with independently addressable Video Server children.</Description>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseFile>LICENSE</PackageLicenseFile>
+		<RepositoryUrl>https://github.com/oznetmaster/AppleTVCrestronPlatformProof</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PublishRepositoryUrl>true</PublishRepositoryUrl>
+		<PackageProjectUrl>https://github.com/oznetmaster/AppleTVCrestronPlatformProof</PackageProjectUrl>
+		<PackageTags>crestron;crestron-home;driver;pkg;apple;appletv;platform;proof</PackageTags>
+		<PackageDriverPkgPath Condition="'$(PackageDriverPkgPath)' == ''"></PackageDriverPkgPath>
+		<PackageDriverManifestPath Condition="'$(PackageDriverManifestPath)' == ''"></PackageDriverManifestPath>
+		<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Debug'">true</TreatWarningsAsErrors>
+	</PropertyGroup>
+
+	<!-- Lets the release workflow supply the GitHub Release notes as the NuGet package's release notes without
+		  needing to escape multi-line text on the dotnet pack command line: it writes the notes to a plain text
+		  file and passes that file's path in via PackageReleaseNotesFile, which is read here at pack time. -->
+	<PropertyGroup Condition="'$(PackageReleaseNotesFile)' != '' And Exists('$(PackageReleaseNotesFile)')">
+		<PackageReleaseNotes>$([System.IO.File]::ReadAllText('$(PackageReleaseNotesFile)'))</PackageReleaseNotes>
+	</PropertyGroup>
+
+	<ItemGroup>
+<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
+		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
+		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<EmbeddedResource Include="AppleTVCrestronPlatformProof.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\README.md" Link="README.md" Pack="true" PackagePath="\" Visible="false" />
+		<None Include="..\LICENSE" Link="LICENSE" Pack="true" PackagePath="\" Visible="false" />
+		<None Include="$(PackageDriverPkgPath)" Pack="true" PackagePath="\" Visible="false" Condition="'$(PackageDriverPkgPath)' != ''" />
+		<None Include="$(PackageDriverManifestPath)" Pack="true" PackagePath="\" Visible="false" Condition="'$(PackageDriverManifestPath)' != ''" />
+		<None Include="BumpDriverVersion.ps1" />
+		<None Include="Deploy.ps1" />
+		<None Include="ILRepackMerge.ps1" />
+		<None Include="PatchMergedAssembly.ps1" />
+		<None Include="AppleTVCrestronPlatformProof.csproj.user" />
+		<None Include="AppleTVCrestronPlatformProof.Local.targets" />
+	</ItemGroup>
+
+	<PropertyGroup>
+		<LocalCrestronSdkLibDir Condition="'$(LocalCrestronSdkLibDir)' == ''">$(CRESTRON_DRIVER_SDK_LIBRARIES)</LocalCrestronSdkLibDir>
+		<LocalNet472ReferenceAssemblies Condition="'$(LocalNet472ReferenceAssemblies)' == ''">$(NET472_REFERENCE_ASSEMBLIES)</LocalNet472ReferenceAssemblies>
+		<LocalNetFxRuntimeDir Condition="'$(LocalNetFxRuntimeDir)' == ''">$(NETFX_RUNTIME_DIR)</LocalNetFxRuntimeDir>
+		<ManifestUtilExe Condition="'$(ManifestUtilExe)' == ''">ManifestUtil.exe</ManifestUtilExe>
+		<MergeDependenciesContinueOnError Condition="'$(MergeDependenciesContinueOnError)' == ''">true</MergeDependenciesContinueOnError>
+		<PackageDriverContinueOnError Condition="'$(PackageDriverContinueOnError)' == ''">true</PackageDriverContinueOnError>
+		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">true</PackageDriverIgnoreExitCode>
+	</PropertyGroup>
+
+	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild">
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronPlatformProof.json&quot; -Configuration &quot;$(Configuration)&quot;" />
+	</Target>
+
+	<Target Name="MergeDependencies" AfterTargets="Build">
+		<ItemGroup>
+			<MergeInputs Include="$(TargetPath)" />
+			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.dll" />
+			<MergeInputs Include="$(TargetDir)Newtonsoft.Json.dll" />
+			<MergeInputs Include="$(TargetDir)log4net.dll" />
+			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" />
+			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.HashCode.dll" />
+			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.Memory.dll" />
+			<MergeInputs Include="$(TargetDir)System.Runtime.CompilerServices.Unsafe.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.CallerInformationAttributes.G2.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.ConstantExpectedAttribute.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.DynamicallyAccessedMembersAttribute.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.ExperimentalAttribute.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.FeatureGuardAttribute.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.MetaPackage.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G1.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G2.dll" />
+			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G3.dll" />
+		</ItemGroup>
+		<WriteLinesToFile File="$(TargetDir)merge_inputs.txt" Lines="@(MergeInputs)" Overwrite="true" />
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\ILRepackMerge.ps1&quot; -TargetPath &quot;$(TargetPath)&quot; -InputListFile &quot;$(TargetDir)merge_inputs.txt&quot; -LibDir &quot;$(TargetDir.TrimEnd('\'))&quot; -SdkLibDir &quot;$(LocalCrestronSdkLibDir)&quot; -FxRefDir &quot;$(LocalNet472ReferenceAssemblies)&quot; -FxRuntimeDir &quot;$(LocalNetFxRuntimeDir)&quot;" ContinueOnError="$(MergeDependenciesContinueOnError)" />
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\PatchMergedAssembly.ps1&quot; -AssemblyPath &quot;$(TargetPath)&quot; -OutputPath &quot;$(TargetDir)patched\$(AssemblyName).dll&quot;" ContinueOnError="false" />
+	</Target>
+
+	<Target Name="PackageDriver" AfterTargets="MergeDependencies">
+		<RemoveDir Directories="$(TargetDir)patched\IncludeInPkg" />
+		<ItemGroup>
+			<IncludeInPkgFiles Include="$(MSBuildProjectDirectory)\IncludeInPkg\**\*" Exclude="$(MSBuildProjectDirectory)\IncludeInPkg\**\*.xsd" />
+		</ItemGroup>
+		<Copy SourceFiles="@(IncludeInPkgFiles)" DestinationFiles="@(IncludeInPkgFiles->'$(TargetDir)patched\IncludeInPkg\%(RecursiveDir)%(Filename)%(Extension)')" />
+		<Exec Command="&quot;$(ManifestUtilExe)&quot; --file &quot;$(TargetDir)patched\$(AssemblyName).dll&quot; --lib &quot;$(TargetDir.TrimEnd('\'))&quot; --output &quot;$(TargetDir.TrimEnd('\'))&quot;" ContinueOnError="$(PackageDriverContinueOnError)" IgnoreExitCode="$(PackageDriverIgnoreExitCode)" />
+	</Target>
+
+	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != ''">
+		<PropertyGroup>
+			<PkgFile>$(TargetDir)$(AssemblyName).pkg</PkgFile>
+			<DeployScriptPath>$(MSBuildProjectDirectory)\..\AppleTVCrestronDriver\Deploy.ps1</DeployScriptPath>
+			<DeployManifestPath>$(MSBuildProjectDirectory)\AppleTVCrestronPlatformProof.json</DeployManifestPath>
+		</PropertyGroup>
+		<Message Text="Deploying $(AssemblyName).pkg to $(CrestronHomeIP)..." Importance="High" />
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(DeployScriptPath)&quot; -PkgFile &quot;$(PkgFile)&quot; -ProcessorIP &quot;$(CrestronHomeIP)&quot; -User &quot;$(CrestronHomeFtpUser)&quot; -Password &quot;$(CrestronHomeSftpPassword)&quot; -ManifestPath &quot;$(DeployManifestPath)&quot;" ContinueOnError="false" />
+	</Target>
+
+	<Target Name="ValidateNuGetPkgInput" BeforeTargets="GenerateNuspec" Condition="'$(IsPacking)' == 'true'">
+		<Error Condition="'$(PackageDriverPkgPath)' == ''" Text="PackageDriverPkgPath must be set when packing the NuGet package." />
+		<Error Condition="!Exists('$(PackageDriverPkgPath)')" Text="PackageDriverPkgPath '$(PackageDriverPkgPath)' does not exist." />
+		<Error Condition="'$(PackageDriverManifestPath)' == ''" Text="PackageDriverManifestPath must be set when packing the NuGet package." />
+		<Error Condition="!Exists('$(PackageDriverManifestPath)')" Text="PackageDriverManifestPath '$(PackageDriverManifestPath)' does not exist." />
+	</Target>
+
+	<Import Project="AppleTVCrestronPlatformProof.Local.targets" Condition="Exists('AppleTVCrestronPlatformProof.Local.targets')" />
+
+</Project>

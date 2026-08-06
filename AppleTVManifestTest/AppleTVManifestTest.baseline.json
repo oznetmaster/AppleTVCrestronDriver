@@ -1,0 +1,43 @@
+{
+	"CrestronSerialDeviceApi": {
+		"DeviceSupport": {
+			"SupportsArrowKeys": true,
+			"SupportsHome": true,
+			"SupportsPlayPause": true,
+			"SupportsMenu": true,
+			"SupportsSelect": true,
+			"SupportsDiscretePower": true
+		},
+		"DeviceSupport2": [],
+		"GeneralInformation": {
+			"DeviceType": "Video Server",
+			"Manufacturer": "AppleTV Manifest Test",
+			"BaseModel": "Video Server Control",
+			"VersionDate": "2026-08-05 15:45:00.000",
+			"DriverVersion": "1.0.000.0001",
+			"SdkVersion": "27.0.24",
+			"Description": "Isolated Video Server manifest conversion test driver.",
+			"Guid": "9AEF4656-6E70-4AE1-A631-3A929C10D4B4",
+			"DependencyGroup": "",
+			"Developer": { "Company": "Neil Colvin", "Contact": "Neil Colvin", "Email": "", "Website": "", "PhoneNumber": "" },
+			"SupportedSeries": ["AppleTV Manifest Test"],
+			"SupportedModels": ["Video Server Control"]
+		},
+		"Api": {
+			"Communication": { "CommunicationType": 1, "Protocol": 0, "Baud": 256, "Parity": 0, "HwHandshake": 0, "SwHandshake": 0, "DataBits": 8, "StopBits": 1, "Port": 49152, "EnableAutoPolling": false, "EnableAutoReconnect": false, "TimeBetweenCommands": 0, "TimeBetweenCommandsOverride": 0, "ResponseTimeout": 1000, "WaitForResponse": false, "IpProtocol": 0, "IsUserAdjustable": false, "Authentication": { "Type": "None", "Required": false }, "IsSecure": false, "UserAdjustableProperties": [], "DeviceId": 0 },
+			"ArtworkModes": { "SupportsArtworkMode": false, "SupportsArtworkModeOnPowerOff": false, "ArtworkModeOnCommand": "", "ArtworkModeOffCommand": "" },
+			"VideoConfigurations": { "SupportsDisplayModes": false, "DisplayModes": [] },
+			"MediaServiceProviders": { "SupportsMediaServices": false, "HasDirectAccessToApps": false, "SupportsActiveMediaServiceFeedback": false, "SupportsActiveMediaServiceStateFeedback": false, "SupportsMediaServiceSubscriptionStateFeedback": false, "AvailableServices": [] },
+			"StandardCommands": { "UpArrow": { "StandardCommand": 10600, "Command": "u" }, "DownArrow": { "StandardCommand": 10000, "Command": "d" }, "LeftArrow": { "StandardCommand": 10200, "Command": "l" }, "RightArrow": { "StandardCommand": 10400, "Command": "r" }, "Home": { "StandardCommand": 11000, "Command": "h" }, "PlayPause": { "StandardCommand": 12902, "Command": "p" }, "Select": { "StandardCommand": 10700, "Command": "s" }, "PowerOff": { "StandardCommand": 6601, "Command": "p0" }, "PowerOn": { "StandardCommand": 6602, "Command": "p1" }, "Menu": { "StandardCommand": 15200, "Command": "m" } },
+			"CustomCommands": [],
+			"ArrowKeys": [0,1,2,3],
+			"ColorButtons": [],
+			"LetterButtons": [],
+			"Feedback": { "Header": "", "CommandAckNak": { "Ack": "", "Nak": "" }, "PowerFeedback": { "Feedback": {}, "GroupHeader": "*DUMMY*" }, "MinimumResponseTime": 0, "MaximumResponseTime": 0, "SupportsUnsolicitedFeedback": false, "ConnectedStatePollCommand": "" },
+			"AudioInOut": { "Inputs": [], "Outputs": [] },
+			"VideoInOut": { "Inputs": [], "Outputs": [{ "type": 32766, "description": "HDMI", "connector": 20, "friendlyName": "HDMI" }] },
+			"PowerWaitPeriod": { "WarmUpTime": 0, "UseLocalWarmupTimer": false, "CoolDownTime": 0, "UseLocalCooldownTimer": false }
+		},
+		"UserAttributes": []
+	}
+}

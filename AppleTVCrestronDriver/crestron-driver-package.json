@@ -1,0 +1,13 @@
+{
+  "standardVersion": "1.0",
+  "packageType": "CrestronHomeDriver",
+  "driverPlatform": "Crestron Home",
+  "payloadType": "pkg",
+  "payloadFile": "AppleTVCrestronDriver.pkg",
+  "containsManagedDllPayload": false,
+  "packageId": "CrestronHomeDriver.Apple.AppleTV",
+  "packageVersion": "$packageVersion$",
+  "displayName": "AppleTV Driver",
+  "vendor": "Apple",
+  "driverCategory": "Video Server"
+}

@@ -1,0 +1,136 @@
+{
+	"CrestronSerialDeviceApi": {
+		"UserAttributes": [
+			{
+				"TypeName": "Custom",
+				"ParameterId": "AppleTvName",
+				"Label": "Apple TV Name",
+				"Description": "The Apple TV name supplied to the Companion Link session.",
+				"Persistent": true,
+				"RequiredForConnection": "Before",
+				"Data": {
+					"DataType": "String",
+					"Mask": "",
+					"DefaultValue": ""
+				}
+			}
+		],
+		"GeneralInformation": {
+			"SupportedSeries": [
+				"Apple TV"
+			],
+			"BaseModel": "Apple TV Companion",
+			"Description": "Apple TV Companion Link Video Server",
+			"SdkVersion": "27.0.24",
+			"Guid": "725C8A9E-1A85-4FC2-9B95-D20A488A4762",
+			"DeviceType": "Video Server",
+			"Manufacturer": "Apple",
+			"VersionDate": "2026-08-05 10:13:06.551",
+			"Developer": {
+				"PhoneNumber": "",
+				"Contact": "Neil Colvin",
+				"Website": "",
+				"Email": "",
+				"Company": "Neil Colvin"
+			},
+			"DriverVersion": "1.0.000.0041",
+			"DependencyGroup": "",
+			"SupportedModels": [
+				"Apple TV Companion"
+			]
+		},
+		"DeviceSupport": {
+			"SupportsArrowKeys": true,
+			"SupportsForwardScan": true,
+			"SupportsForwardSkip": true,
+			"SupportsPause": true,
+			"SupportsPlay": true,
+			"SupportsSelect": true,
+			"SupportsHome": true,
+			"SupportsMenu": true,
+			"SupportsBack": true,
+			"SupportsReverseScan": true,
+			"SupportsReverseSkip": true
+		},
+		"DeviceSupport2": [
+			"SupportsPlayPause"
+		],
+		"Api": {
+			"Communication": {
+				"TimeBetweenCommands": 0,
+				"CommunicationType": 1,
+				"EnableAutoReconnect": true,
+				"ResponseTimeout": 10000,
+				"DeviceId": 0,
+				"IsUserAdjustable": false,
+				"TimeBetweenCommandsOverride": 0,
+				"Baud": 256,
+				"Authentication": {
+					"Required": false,
+					"Type": "None"
+				},
+				"IpProtocol": 0,
+				"HwHandshake": 0,
+				"Protocol": 0,
+				"EnableAutoPolling": false,
+				"Parity": 0,
+				"IsSecure": false,
+				"DataBits": 8,
+				"SwHandshake": 0,
+				"WaitForResponse": false,
+				"Port": 49152,
+				"UserAdjustableProperties": [],
+				"StopBits": 1
+			},
+			"MediaServiceProviders": {
+				"SupportsActiveMediaServiceStateFeedback": false,
+				"AvailableServices": [],
+				"SupportsActiveMediaServiceFeedback": false,
+				"HasDirectAccessToApps": false,
+				"SupportsMediaServices": false,
+				"SupportsMediaServiceSubscriptionStateFeedback": false
+			},
+			"ArtworkModes": {
+				"SupportsArtworkModeOnPowerOff": false,
+				"ArtworkModeOffCommand": "",
+				"ArtworkModeOnCommand": "",
+				"SupportsArtworkMode": false
+			},
+			"VideoConfigurations": {
+				"SupportsDisplayModes": false,
+				"DisplayModes": []
+			},
+			"StandardCommands": {
+				"DownArrow": { "StandardCommand": 10000, "Command": "companion/hid/down", "Parameters": [] },
+				"LeftArrow": { "StandardCommand": 10200, "Command": "companion/hid/left", "Parameters": [] },
+				"RightArrow": { "StandardCommand": 10400, "Command": "companion/hid/right", "Parameters": [] },
+				"UpArrow": { "StandardCommand": 10600, "Command": "companion/hid/up", "Parameters": [] },
+				"Select": { "StandardCommand": 10700, "Command": "companion/hid/select", "Parameters": [] },
+				"Home": { "StandardCommand": 11000, "Command": "companion/hid/home", "Parameters": [] },
+				"ForwardScan": { "StandardCommand": 12800, "Command": "companion/media/fast-forward", "Parameters": [] },
+				"ReverseScan": { "StandardCommand": 12801, "Command": "companion/media/rewind", "Parameters": [] },
+				"Pause": { "StandardCommand": 12900, "Command": "companion/media/pause", "Parameters": [] },
+				"Play": { "StandardCommand": 12901, "Command": "companion/media/play", "Parameters": [] },
+				"ForwardSkip": { "StandardCommand": 14600, "Command": "companion/media/next-track", "Parameters": [] },
+				"ReverseSkip": { "StandardCommand": 14800, "Command": "companion/media/previous-track", "Parameters": [] },
+				"Menu": { "StandardCommand": 15200, "Command": "companion/hid/menu", "Parameters": [] },
+				"Back": { "StandardCommand": 16400, "Command": "companion/hid/menu", "Parameters": [] },
+				"PowerOn": { "StandardCommand": 6602, "Command": "companion/hid/wake", "Parameters": [] }
+			},
+			"CustomCommands": [],
+			"ArrowKeys": [0, 1, 2, 3],
+			"ColorButtons": [],
+			"LetterButtons": [],
+			"PowerWaitPeriod": { "UseLocalWarmupTimer": false, "WarmUpTime": 0, "UseLocalCooldownTimer": false, "CoolDownTime": 0 },
+			"AudioInOut": { "Inputs": [], "Outputs": [{ "type": 400, "description": "HDMI Output", "connector": 10, "friendlyName": "HDMI Output" }] },
+			"VideoInOut": { "Inputs": [], "Outputs": [{ "type": 400, "description": "HDMI Output", "connector": 20, "friendlyName": "HDMI Output" }] },
+			"Feedback": {
+				"Header": "",
+				"CommandAckNak": { "Ack": "", "Nak": "" },
+				"PowerFeedback": { "Feedback": { "On": "", "Off": "" }, "GroupHeader": "" },
+				"SupportsUnsolicitedFeedback": true,
+				"ConnectedStatePollCommand": ""
+			}
+		}
+	}
+}
