@@ -92,7 +92,7 @@
 		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">false</PackageDriverIgnoreExitCode>
 	</PropertyGroup>
 
-	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild">
+	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1')">
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
 	</Target>
 
