@@ -21,7 +21,7 @@ The driver only implements Companion Link (the protocol tvOS remotes and the App
 - Pairing directly from the Crestron Home configuration UI: enter the Apple TV's name, start pairing, and enter the on-screen PIN when prompted
 - Persisted pairing credentials so the Apple TV does not need to be re-paired after a processor reboot or driver reinitialization
 - Automatic reconnection and online/offline status reporting
-- Arrow key navigation, Select, Menu, Home, Back, Exit, Info
+- Arrow key navigation, Select, Menu, Home, Back
 - Discrete power on/off
 - Play/Pause transport control
 
