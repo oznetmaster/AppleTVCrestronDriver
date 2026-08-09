@@ -58,7 +58,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			};
 		protocol.AppleTvNameChanged += appleTvName => _ = HandleAppleTvNameChangedAsync (protocol, appleTvName);
 		protocol.PairingPinChanged += pairingPin => _ = HandlePairingPinChangedAsync (protocol, pairingPin);
-		protocol.PairNowRequested += () => _ = HandlePairNowRequestedAsync (protocol);
+		protocol.PairNowRequested += () => _ = HandlePairNowRequestedAsync ();
 		protocol.StateChange += StateChange;
 		protocol.RxOut += SendRxOut;
 		protocol.Initialize (VideoServerData);
@@ -98,8 +98,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	/// <summary>
 	/// Releases the active Companion Link session and any pending pairing session.
 	/// </summary>
-	public override void Dispose ()
-		{
+	public override void Dispose () =>
 		// Do not dispose the pairing session, its gate, or the configure gate
 		// here: they are owned by the static AppleTvPairingSessionState
 		// singleton so in-flight work survives this instance being recreated
@@ -115,7 +114,6 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// not), so leaving them undisposed here is safe and simply lets them
 		// be collected once no longer referenced.
 		base.Dispose ();
-		}
 
 	// These are invoked as fire-and-forget from synchronous RAD SDK event delegates
 	// (Action/Action<string>), which offer no way to await a result back into
@@ -161,12 +159,12 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		}
 
-	private async Task HandlePairNowRequestedAsync (AppleTvVideoServerProtocol protocol)
+	private async Task HandlePairNowRequestedAsync ()
 		{
 		try
 			{
 			LogDiagnostic ("Pair Now was requested.");
-			await BeginPairingAsync (protocol).ConfigureAwait (false);
+			await BeginPairingAsync ().ConfigureAwait (false);
 			}
 		catch (Exception exception)
 			{
@@ -192,7 +190,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// this instance observes the just-saved paired credentials and is the
 		// one that actually connects.
 		await session.Gate.WaitAsync ().ConfigureAwait (false);
-		session.Gate.Release ();
+		_ = session.Gate.Release ();
 
 		await session.ConfigureGate.WaitAsync ().ConfigureAwait (false);
 		try
@@ -374,7 +372,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		finally
 			{
-			session.ConfigureGate.Release ();
+			_ = session.ConfigureGate.Release ();
 			}
 		}
 
@@ -382,7 +380,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	/// Starts Companion Link pairing using the persisted discovery identity (address/port),
 	/// requiring no additional network discovery, and shows the PIN entry attributes.
 	/// </summary>
-	private async Task BeginPairingAsync (AppleTvVideoServerProtocol protocol)
+	private async Task BeginPairingAsync ()
 		{
 		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
 		await session.Gate.WaitAsync ().ConfigureAwait (false);
@@ -422,7 +420,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		finally
 			{
-			session.Gate.Release ();
+			_ = session.Gate.Release ();
 			}
 		}
 
@@ -505,7 +503,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		finally
 			{
-			session.Gate.Release ();
+			_ = session.Gate.Release ();
 			}
 		}
 
@@ -540,10 +538,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		session.Name = string.Empty;
 		}
 
-	private void SetAppleTvNameStatus (string description)
-		{
-		LogDiagnostic (description);
-		}
+	private void SetAppleTvNameStatus (string description) => LogDiagnostic (description);
 
 	private AppleTvStoredDevice LoadStoredDevice ()
 		{

@@ -86,10 +86,8 @@ internal sealed class AppleTvStoredDevice
 			}
 
 		string path = Path.Combine (SharedStorage.GetCredentialDirectory (), GetPathKey (device.UniqueId) + ".json");
-		using (FileStream stream = File.Create (path))
-			{
-			new DataContractJsonSerializer (typeof (StoredDeviceFile)).WriteObject (stream, StoredDeviceFile.FromStoredDevice (device));
-			}
+		using FileStream stream = File.Create (path);
+		new DataContractJsonSerializer (typeof (StoredDeviceFile)).WriteObject (stream, StoredDeviceFile.FromStoredDevice (device));
 		}
 
 	[DataContract]

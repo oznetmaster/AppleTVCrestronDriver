@@ -31,15 +31,15 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 	// direction's down/up state is independent, so an overlapping Press for a
 	// new direction cannot clobber the release bookkeeping for a previous one.
 	private AppleTvCompanionSession _session;
-	private readonly Dictionary<ArrowDirections, bool> _pressedArrowDirections = new Dictionary<ArrowDirections, bool>
+	private readonly Dictionary<ArrowDirections, bool> _pressedArrowDirections = new ()
 		{
 		{ ArrowDirections.Up, false },
 		{ ArrowDirections.Down, false },
 		{ ArrowDirections.Left, false },
 		{ ArrowDirections.Right, false },
 		};
-	private readonly object _pressedArrowLock = new object ();
-	private readonly SemaphoreSlim _sendGate = new SemaphoreSlim (1, 1);
+	private readonly object _pressedArrowLock = new();
+	private readonly SemaphoreSlim _sendGate = new(1, 1);
 
 	// Crestron Home re-applies the entire current configuration form (every
 	// attribute's last known value, not just the one the user changed) whenever
@@ -230,7 +230,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 				if (_pressedArrowDirections[direction])
 					{
 					_pressedArrowDirections[direction] = false;
-					(pressedDirections ??= new List<ArrowDirections> ()).Add (direction);
+					(pressedDirections ??= []).Add (direction);
 					}
 				}
 			}
@@ -244,22 +244,14 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			}
 		}
 
-	private static HidCommand MapArrowDirection (ArrowDirections direction)
+	private static HidCommand MapArrowDirection (ArrowDirections direction) => direction switch
 		{
-		switch (direction)
-			{
-			case ArrowDirections.Up:
-				return HidCommand.Up;
-			case ArrowDirections.Down:
-				return HidCommand.Down;
-			case ArrowDirections.Left:
-				return HidCommand.Left;
-			case ArrowDirections.Right:
-				return HidCommand.Right;
-			default:
-				return HidCommand.Up;
-			}
-		}
+			ArrowDirections.Up => HidCommand.Up,
+			ArrowDirections.Down => HidCommand.Down,
+			ArrowDirections.Left => HidCommand.Left,
+			ArrowDirections.Right => HidCommand.Right,
+			_ => HidCommand.Up,
+			};
 
 	[Conditional ("DEBUG")]
 	private void LogDiagnostic (string message)
@@ -349,7 +341,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 				}
 			finally
 				{
-				_sendGate.Release ();
+				_ = _sendGate.Release ();
 				}
 			}
 		catch (Exception exception)

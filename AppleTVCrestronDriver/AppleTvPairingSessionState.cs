@@ -21,7 +21,7 @@ namespace AppleTV.CrestronDriver;
 /// </summary>
 internal sealed class AppleTvPairingSessionState
 	{
-	internal static readonly AppleTvPairingSessionState Instance = new AppleTvPairingSessionState ();
+	internal static readonly AppleTvPairingSessionState Instance = new();
 
 	private AppleTvPairingSessionState ()
 		{
@@ -32,7 +32,7 @@ internal sealed class AppleTvPairingSessionState
 	// also reinitialize the driver instance mid-handshake. This gate makes
 	// CompletePairingAsync wait for any in-flight BeginPairingAsync (on this
 	// or a recreated instance) to finish before it inspects Pairing.
-	internal readonly SemaphoreSlim Gate = new SemaphoreSlim (1, 1);
+	internal readonly SemaphoreSlim Gate = new(1, 1);
 	internal AppleTvCompanionPairing Pairing;
 	internal string Address = string.Empty;
 	internal int Port;
@@ -47,7 +47,7 @@ internal sealed class AppleTvPairingSessionState
 	// serialized against the new instance's pairing/connect flow at all, so
 	// it can resume after pairing has already succeeded and overwrite the
 	// just-saved paired credentials with a stale, unpaired discovery record.
-	internal readonly SemaphoreSlim ConfigureGate = new SemaphoreSlim (1, 1);
+	internal readonly SemaphoreSlim ConfigureGate = new(1, 1);
 
 	// The Apple TV name the active Pairing session was started for. Crestron Home
 	// replays AppleTvName (with its unchanged value) on every config reinit,

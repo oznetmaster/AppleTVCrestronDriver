@@ -58,7 +58,7 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 
 		try
 			{
-			srp.Initialize ();
+			_ = srp.Initialize ();
 			byte[] m1 = Tlv8.WriteTlv (new Dictionary<int, byte[]>
 				{
 					{ (int)TlvValue.Method, new byte[] { 0 } },
@@ -75,12 +75,9 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 				throw new InvalidOperationException ($"The Apple TV rejected the pairing request (error code {errorCode}). The Apple TV may already be in an active pairing session; try again in a few seconds.");
 				}
 
-			if (!m2.TryGetValue ((int)TlvValue.Salt, out pairing._atvSalt) || !m2.TryGetValue ((int)TlvValue.PublicKey, out pairing._atvPublicKey))
-				{
-				throw new InvalidOperationException ("The Apple TV's pairing response did not include the expected salt/public key values.");
-				}
-
-			return pairing;
+			return !m2.TryGetValue ((int)TlvValue.Salt, out pairing._atvSalt) || !m2.TryGetValue ((int)TlvValue.PublicKey, out pairing._atvPublicKey)
+				? throw new InvalidOperationException ("The Apple TV's pairing response did not include the expected salt/public key values.")
+				: pairing;
 			}
 		catch
 			{
