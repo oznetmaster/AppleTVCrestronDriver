@@ -60,4 +60,33 @@ internal sealed class AppleTvPairingSessionState
 	// protocol instance is itself recreated on every reinit; an instance
 	// field would reset to false and see a replayed True as a fresh edge.
 	internal bool LastPairNowValue;
+
+	// The protocol instance Crestron Home currently holds a live reference to
+	// (i.e. the one created by the most recent Initialize()). Crestron Home
+	// can reinitialize the driver again while an older instance's
+	// BeginPairingAsync/CompletePairingAsync/ConnectCompanionAsync chain is
+	// still awaiting network I/O (TCP connect, pair verify, Companion API
+	// session setup). That older instance's async chain does not stop just
+	// because a newer instance was created - it keeps running and, if it
+	// succeeds, sets IsConnected/fires ConnectionChangedEvent on itself. But
+	// Crestron Home already switched to displaying the newer instance, so
+	// that success is invisible to the host and the device is shown offline
+	// despite every diagnostic log showing a fully successful connection.
+	// Tracking the current instance here lets the async pairing/connect
+	// paths detect this and redirect the final connected-state notification
+	// to whichever protocol instance is actually current when the async work
+	// completes, instead of the possibly-stale instance captured when the
+	// chain started.
+	internal AppleTvVideoServerProtocol CurrentProtocol;
+
+	// A PairingPin that arrived while the protocol instance handling it was
+	// (or turned out to be) stale - i.e. no longer ReferenceEquals to
+	// CurrentProtocol - is never completed on that stale instance. Instead
+	// it is stashed here, and the next Initialize() (which runs on the new,
+	// current instance) picks it up and runs the entire completion/connect
+	// flow itself. This guarantees the completed-pairing connect always
+	// happens on the instance Crestron Home is actually watching, instead
+	// of relying on the stale instance to hand off a partially completed
+	// operation.
+	internal string PendingPairingPin;
 	}

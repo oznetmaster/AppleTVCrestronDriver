@@ -64,6 +64,29 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		protocol.Initialize (VideoServerData);
 		VideoServerProtocol = protocol;
 
+		// Record this as the instance Crestron Home currently holds a live
+		// reference to. Async pairing/connect work started by an older,
+		// now-superseded instance can still be running when this reinit
+		// happens (Crestron Home does not cancel it); that older work must
+		// redirect its eventual connected-state notification to whichever
+		// instance is current when it completes, not to itself, or the
+		// device is left showing offline despite a fully successful connect.
+		AppleTvPairingSessionState.Instance.CurrentProtocol = protocol;
+
+		// If a PairingPin arrived on a now-stale instance (Crestron Home
+		// reinitialized again before that instance could complete pairing),
+		// it stashed the PIN here instead of completing on itself. This new,
+		// current instance is the one Crestron Home actually watches, so it
+		// must run the entire completion/connect flow itself rather than
+		// letting the stale instance finish it invisibly.
+		string pendingPin = AppleTvPairingSessionState.Instance.PendingPairingPin;
+		if (!string.IsNullOrEmpty (pendingPin))
+			{
+			AppleTvPairingSessionState.Instance.PendingPairingPin = null;
+			LogDiagnostic ("Resuming pairing completion on the current driver instance using a pending PIN.");
+			_ = CompletePairingAsync (protocol, pendingPin);
+			}
+
 		// PairNow, AppleTvPairingNotice, and PairingPin are declared statically in the
 		// driver's json manifest, so they always exist and are never added or removed at
 		// runtime. Any in-flight pairing session survives this reinitialization because
@@ -405,18 +428,6 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private async Task CompletePairingAsync (AppleTvVideoServerProtocol protocol, string pairingPin)
 		{
-		// "0000" is the manifest's placeholder DefaultValue for PairingPin (an
-		// OnScreenId field). Configure Pro will not enable Next while an
-		// OnScreenId field is empty, but the real PIN cannot exist until PairNow
-		// has been submitted and pairing has actually started on the Apple TV.
-		// The placeholder lets Next be pressed at all, but it is never a real
-		// PIN typed by the user and must never be attempted against the device.
-		if (string.Equals (pairingPin, "0000", StringComparison.Ordinal))
-			{
-			LogDiagnostic ("Pairing PIN was ignored because it is still the placeholder value.");
-			return;
-			}
-
 		if (pairingPin.Length != 4 || !int.TryParse (pairingPin, out int pin) || pin < 0 || pin > 9999 || string.IsNullOrWhiteSpace (protocol.AppleTvName))
 			{
 			LogDiagnostic ("Pairing PIN was ignored because the PIN is invalid or no Apple TV name is configured.");
@@ -439,6 +450,23 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				return;
 				}
 
+			// 'protocol' is whichever instance was live when Crestron Home
+			// delivered SetUserAttribute for PairingPin, but Crestron Home can
+			// reinitialize the driver again before this method got to run
+			// (e.g. while it was awaiting the Gate above). Running the
+			// handshake on a stale instance is pointless: even on success, the
+			// stale instance's connected-state notification is invisible to
+			// Crestron Home, which has already switched to the new instance.
+			// Never start the handshake on a stale instance - stash the PIN
+			// instead and let the new instance's own Initialize() run the
+			// entire completion/connect flow on itself.
+			if (!ReferenceEquals (AppleTvPairingSessionState.Instance.CurrentProtocol, protocol))
+				{
+				LogDiagnostic ($"Deferring pairing completion for '{protocol.AppleTvName}' because a newer driver instance is now current; it will complete pairing using this PIN.");
+				session.PendingPairingPin = pairingPin;
+				return;
+				}
+
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
 			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Address, session.Port, default).ConfigureAwait (false);
 			device.UniqueId = session.UniqueId;
@@ -446,6 +474,25 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
 			ClearPairing ();
+
+			// Crestron Home can reinitialize the driver again while the
+			// handshake above was in flight (it is the only actual await in
+			// this method), creating a newer instance. If that happened,
+			// 'protocol' here is now a superseded instance: connecting
+			// through it would succeed but be invisible to Crestron Home,
+			// which is already displaying the newer instance. Credentials are
+			// already saved at this point (ClearPairing has already run, so
+			// there is no pairing session left to replay), so connect using
+			// the new instance's own protocol reference instead.
+			AppleTvVideoServerProtocol currentProtocol = AppleTvPairingSessionState.Instance.CurrentProtocol;
+			if (!ReferenceEquals (currentProtocol, protocol))
+				{
+				LogDiagnostic ($"Pairing completed for '{device.Name}', but a newer driver instance became current while completing; connecting using that instance instead.");
+				await ConnectCompanionAsync (currentProtocol, device, device.Address, device.Port).ConfigureAwait (false);
+				LogDiagnostic ($"Pairing completed and '{device.Name}' is connected on the current driver instance.");
+				return;
+				}
+
 			await ConnectCompanionAsync (protocol, device, device.Address, device.Port).ConfigureAwait (false);
 			LogDiagnostic ($"Pairing completed and '{device.Name}' is connected.");
 			}
