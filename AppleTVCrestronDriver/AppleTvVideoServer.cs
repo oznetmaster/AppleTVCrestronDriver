@@ -1,16 +1,13 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 using AppleTvControlLibrary.Discovery.Companion;
 
-using Crestron.SimplSharp;
-using Crestron.RAD.Common.Enums;
 using Crestron.RAD.Common.Interfaces;
-using Crestron.RAD.Common.Transports;
 using Crestron.RAD.DeviceTypes.VideoServer;
+using Crestron.SimplSharp;
 
 namespace AppleTV.CrestronDriver;
 
@@ -575,8 +572,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// Exceptions must be visible in both Debug and Release builds, so this
 		// logs directly rather than going through the DEBUG-only LogDiagnostic.
 		string diagnostic = $"[AppleTV] {exception.GetType ().FullName}: {exception.Message}";
-		CrestronConsole.PrintLine (diagnostic);
-		ErrorLog.Notice (diagnostic);
+		ErrorLog.Error (diagnostic);
 		}
 
 	[Conditional ("DEBUG")]
@@ -590,7 +586,6 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// diagnostic emitted during construction/load and the initial
 		// SetUserAttribute calls that follow.
 		string diagnostic = $"[AppleTV] {message}";
-		CrestronConsole.PrintLine (diagnostic);
 		ErrorLog.Notice (diagnostic);
 		}
 	}

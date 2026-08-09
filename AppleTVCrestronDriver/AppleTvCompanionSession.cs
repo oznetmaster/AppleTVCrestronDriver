@@ -198,14 +198,8 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 	private void SetConnectionState (bool connected)
 		{
-		#if DEBUG
-		Crestron.SimplSharp.CrestronConsole.PrintLine ($"[AppleTV] AppleTvCompanionSession.SetConnectionState({connected}); _isConnected was {_isConnected}, ConnectionStateChanged has subscriber: {ConnectionStateChanged is not null}");
-		#endif
 		if (_isConnected == connected)
 			{
-			#if DEBUG
-			Crestron.SimplSharp.CrestronConsole.PrintLine ($"[AppleTV] AppleTvCompanionSession.SetConnectionState({connected}) ignored; state unchanged.");
-			#endif
 			return;
 			}
 

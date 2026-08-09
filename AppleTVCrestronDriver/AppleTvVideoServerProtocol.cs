@@ -7,10 +7,10 @@ using System.Threading.Tasks;
 using AppleTvControlLibrary.Auth;
 using AppleTvControlLibrary.Protocol;
 
-using Crestron.SimplSharp;
 using Crestron.RAD.Common.Enums;
 using Crestron.RAD.Common.Transports;
 using Crestron.RAD.DeviceTypes.VideoServer;
+using Crestron.SimplSharp;
 
 namespace AppleTV.CrestronDriver;
 
@@ -138,18 +138,12 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	internal void SetCompanionConnectionState (bool connected)
 		{
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.SetCompanionConnectionState({connected}); Transport is AppleTvNoOpTransport: {Transport is AppleTvNoOpTransport}");
-		#endif
 		if (Transport is AppleTvNoOpTransport transport)
 			{
 			transport.SetConnectionState (connected);
 			}
 
 		ConnectionChangedEvent (connected);
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.SetCompanionConnectionState({connected}) completed; IsConnected is now {IsConnected}");
-		#endif
 		}
 
 	public override void Dispose ()
@@ -165,14 +159,8 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	protected override void ConnectionChangedEvent (bool connection)
 		{
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.ConnectionChangedEvent({connection}); IsConnected was {IsConnected}");
-		#endif
 		base.ConnectionChangedEvent (connection);
 		IsConnected = connection;
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.ConnectionChangedEvent({connection}) completed; IsConnected is now {IsConnected}");
-		#endif
 		}
 
 	public override void PowerOff () => SendHid (HidCommand.Sleep);
@@ -281,7 +269,6 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		// diagnostic emitted during construction/load and the initial
 		// SetUserAttribute calls that follow.
 		string diagnostic = $"[AppleTV] {message}";
-		CrestronConsole.PrintLine (diagnostic);
 		ErrorLog.Notice (diagnostic);
 		}
 

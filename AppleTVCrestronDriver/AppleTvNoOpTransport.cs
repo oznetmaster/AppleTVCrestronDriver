@@ -1,5 +1,4 @@
 using Crestron.RAD.Common.Transports;
-using Crestron.SimplSharp;
 
 namespace AppleTV.CrestronDriver;
 
@@ -7,9 +6,6 @@ internal sealed class AppleTvNoOpTransport : ATransportDriver
 	{
 	internal void SetConnectionState (bool connected)
 		{
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvNoOpTransport.SetConnectionState({connected}); IsConnected was {IsConnected}, ConnectionChanged has subscriber: {ConnectionChanged is not null}");
-		#endif
 		IsConnected = connected;
 
 		// IsConnected alone is just a property; the RAD framework's own
@@ -18,9 +14,6 @@ internal sealed class AppleTvNoOpTransport : ATransportDriver
 		// host (Crestron Home) never learns the transport connected and the
 		// device keeps showing offline even after pairing/connect succeeds.
 		ConnectionChanged?.Invoke (connected);
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] AppleTvNoOpTransport.SetConnectionState({connected}) completed; IsConnected is now {IsConnected}");
-		#endif
 		}
 
 	public override void SendMethod (string method, params object[] parameters)
