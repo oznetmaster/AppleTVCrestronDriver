@@ -9,10 +9,4 @@
     <Build Project="false" />
   </Project>
   <Project Path="AppleTVCrestronDriver/AppleTVCrestronDriver.csproj" />
-  <Project Path="AppleTVCrestronPlatformProof/AppleTVCrestronPlatformProof.csproj">
-    <Build Solution="Debug|*" Project="false" />
-  </Project>
-  <Project Path="AppleTVManifestTest/AppleTVManifestTest.csproj">
-    <Build Solution="Debug|*" Project="false" />
-  </Project>
 </Solution>
