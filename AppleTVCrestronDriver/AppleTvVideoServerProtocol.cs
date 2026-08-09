@@ -41,13 +41,16 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 	// Crestron Home re-applies the entire current configuration form (every
 	// attribute's last known value, not just the one the user changed) whenever
 	// it re-initializes the driver - which happens, for example, right after a
-	// pairing attempt fails and the driver restarts. Since PairNow is a boolean
+	// pairing attempt fails and the driver restarts, or as a side effect of
+	// PairNow/PairingPin being applied themselves. Since PairNow is a boolean
 	// toggle rather than a momentary/pulse control, that replay resends
 	// PairNow = True even though the user did not press it again. Tracking the
-	// last observed value here lets PairNow be treated as edge-triggered
+	// last observed value lets PairNow be treated as edge-triggered
 	// (false -> true) instead of level-triggered, so a replayed True is ignored.
-	private bool _lastPairNowValue;
-
+	// This must live in the static AppleTvPairingSessionState singleton, not on
+	// this instance: this protocol object is itself recreated on every reinit,
+	// so an instance field would reset to false and see the replayed True as a
+	// fresh edge every time.
 	internal event Action<string> AppleTvNameChanged;
 
 	internal event Action<string> PairingPinChanged;
@@ -91,13 +94,16 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			// Edge-triggered: only fire on a false -> true transition so that
 			// Crestron Home replaying the last-known form state (e.g. after the
 			// driver reinitializes) does not silently restart pairing without
-			// the user actually pressing Pair Now again.
-			if (attributeValue && !_lastPairNowValue)
+			// the user actually pressing Pair Now again. The last-observed value
+			// is kept on the static AppleTvPairingSessionState singleton because
+			// this protocol instance itself is recreated on every reinit.
+			AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+			if (attributeValue && !session.LastPairNowValue)
 				{
 				PairNowRequested?.Invoke ();
 				}
 
-			_lastPairNowValue = attributeValue;
+			session.LastPairNowValue = attributeValue;
 			return;
 			}
 
@@ -132,12 +138,18 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	internal void SetCompanionConnectionState (bool connected)
 		{
+		#if DEBUG
+		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.SetCompanionConnectionState({connected}); Transport is AppleTvNoOpTransport: {Transport is AppleTvNoOpTransport}");
+		#endif
 		if (Transport is AppleTvNoOpTransport transport)
 			{
 			transport.SetConnectionState (connected);
 			}
 
 		ConnectionChangedEvent (connected);
+		#if DEBUG
+		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.SetCompanionConnectionState({connected}) completed; IsConnected is now {IsConnected}");
+		#endif
 		}
 
 	public override void Dispose ()
@@ -153,8 +165,14 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	protected override void ConnectionChangedEvent (bool connection)
 		{
+		#if DEBUG
+		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.ConnectionChangedEvent({connection}); IsConnected was {IsConnected}");
+		#endif
 		base.ConnectionChangedEvent (connection);
 		IsConnected = connection;
+		#if DEBUG
+		CrestronConsole.PrintLine ($"[AppleTV] AppleTvVideoServerProtocol.ConnectionChangedEvent({connection}) completed; IsConnected is now {IsConnected}");
+		#endif
 		}
 
 	public override void PowerOff () => SendHid (HidCommand.Sleep);

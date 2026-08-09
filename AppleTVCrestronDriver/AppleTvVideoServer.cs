@@ -24,16 +24,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	private const string PAIRING_PIN_ATTRIBUTE_ID = "PairingPin";
 	private const string PAIR_NOW_ATTRIBUTE_ID = "PairNow";
 
-	private readonly SemaphoreSlim _configureGate = new SemaphoreSlim (1, 1);
 	private AppleTvNoOpTransport _transport;
 	private AppleTvStoredDevice _storedDevice;
 
-	// Pairing state lives in a static singleton (AppleTvPairingSessionState.Instance)
-	// rather than on instance fields, because Crestron Home reinitializes (disposes
-	// and recreates) this driver instance whenever a configuration attribute is
-	// applied - including PairNow and PairingPin themselves. Instance fields would
-	// be torn down mid-handshake, causing a recreated instance to race a second
-	// BeginAsync against the Apple TV instead of resuming the original one.
+	// Pairing state, and the configure gate, live in the static singleton
+	// (AppleTvPairingSessionState.Instance) rather than on instance fields,
+	// because Crestron Home reinitializes (disposes and recreates) this driver
+	// instance whenever a configuration attribute is applied - including
+	// PairNow and PairingPin themselves. Instance fields would be torn down or
+	// fail to serialize across that recreation: a pairing handshake could race
+	// a second BeginAsync against the Apple TV instead of resuming the
+	// original one, and a discovery scan started by an older instance could
+	// resume after a newer instance's pairing already completed and
+	// overwrite the just-saved paired credentials with a stale record.
 
 	/// <summary>
 	/// Initializes the Video Server driver and begins connection or pairing for the configured Apple TV.
@@ -74,12 +77,20 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	/// </summary>
 	public override void Dispose ()
 		{
-		// Do not dispose the pairing session or its gate here: they are owned by
-		// the static AppleTvPairingSessionState singleton so an in-flight pairing
-		// handshake survives this instance being recreated by a host config
-		// reinit, and are only released by ClearPairing when pairing actually
-		// completes, fails, or is superseded.
-		_configureGate.Dispose ();
+		// Do not dispose the pairing session, its gate, or the configure gate
+		// here: they are owned by the static AppleTvPairingSessionState
+		// singleton so in-flight work survives this instance being recreated
+		// by a host config reinit. The pairing session is only released by
+		// ClearPairing when pairing actually completes, fails, or is
+		// superseded.
+		//
+		// If these gates were disposed here, a still-running task from this
+		// instance (e.g. ConfigureAppleTvAsync awaiting a discovery scan of up
+		// to five seconds) would throw ObjectDisposedException when it later
+		// tries to Release() a disposed SemaphoreSlim. SemaphoreSlim does not
+		// hold an unmanaged handle unless AvailableWaitHandle is used (it is
+		// not), so leaving them undisposed here is safe and simply lets them
+		// be collected once no longer referenced.
 		base.Dispose ();
 		}
 
@@ -93,7 +104,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		try
 			{
 			LogDiagnostic ($"Apple TV name configured as '{appleTvName}'.");
-			ClearPairing ();
+
+			// Crestron Home replays every configuration attribute, including
+			// AppleTvName with its unchanged value, whenever it reinitializes the
+			// driver instance - including reinits caused by PairNow/PairingPin
+			// themselves. Only clear an active pairing session when the name has
+			// genuinely changed; otherwise this replay would tear down the very
+			// pairing handshake that PairNow/PairingPin just started or completed.
+			AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+			if (session.Pairing is not null && !string.Equals (session.Name, appleTvName, StringComparison.OrdinalIgnoreCase))
+				{
+				ClearPairing ();
+				}
+
 			await ConfigureAppleTvAsync (protocol, appleTvName).ConfigureAwait (false);
 			}
 		catch (Exception exception)
@@ -130,20 +153,47 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private async Task ConfigureAppleTvAsync (AppleTvVideoServerProtocol protocol, string appleTvName)
 		{
-		await _configureGate.WaitAsync ().ConfigureAwait (false);
+		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+
+		// Crestron Home can recreate this driver instance again while an older
+		// instance's BeginPairingAsync/CompletePairingAsync (guarded by
+		// session.Gate) is still in flight - e.g. right after PairNow or
+		// PairingPin triggers a reinit before the pairing handshake or its
+		// credential save has finished. Without waiting on the same gate here,
+		// this (now current) instance's configure pass can run concurrently,
+		// see the shared record as not-yet-paired, skip connecting, and return -
+		// while the older, no-longer-current instance goes on to connect
+		// successfully a moment later on an instance Crestron Home no longer
+		// tracks, leaving the device shown offline despite a fully successful
+		// pairing/connection sequence in the logs. Waiting here first ensures
+		// this instance observes the just-saved paired credentials and is the
+		// one that actually connects.
+		await session.Gate.WaitAsync ().ConfigureAwait (false);
+		session.Gate.Release ();
+
+		await session.ConfigureGate.WaitAsync ().ConfigureAwait (false);
 		try
 			{
 			AppleTvStoredDevice device = LoadStoredDevice ();
 
-			// If the stored identity is only a discovery record (not yet paired) and the
-			// configured Apple TV name no longer matches it, the user has typed a different
-			// name. Discard the stale discovery record so the new name drives a fresh lookup
-			// instead of silently reconnecting to the previously discovered device.
-			if (device is not null && !device.IsPaired
+			// If the stored identity - paired or only a discovery record - no longer
+			// matches the configured Apple TV name, the user has typed a different name
+			// (or renamed the target device). Discard the stale record, including a
+			// paired one, so the new name drives a fresh lookup instead of silently
+			// reconnecting to the previously configured device using its old saved
+			// endpoint and leaving the driver reporting online for the wrong Apple TV.
+			if (device is not null
 				&& !string.IsNullOrWhiteSpace (appleTvName)
 				&& !string.Equals (device.Name, appleTvName, StringComparison.OrdinalIgnoreCase))
 				{
-				LogDiagnostic ($"Configured Apple TV name '{appleTvName}' no longer matches the discovered identity '{device.Name}'; discarding the stale discovery record.");
+				LogDiagnostic (device.IsPaired
+					? $"Configured Apple TV name '{appleTvName}' no longer matches the paired identity '{device.Name}'; disconnecting and discarding the stale paired record."
+					: $"Configured Apple TV name '{appleTvName}' no longer matches the discovered identity '{device.Name}'; discarding the stale discovery record.");
+				if (device.IsPaired)
+					{
+					protocol.SetCompanionConnectionState (false);
+					}
+
 				device = null;
 				}
 
@@ -182,6 +232,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					}
 
 				appleTvName = device.Name;
+				}
+
+			// The stored identity is an unpaired discovery record that already matches the
+			// configured name (checked above; a mismatch would have set device to null).
+			// Discovery already ran once to resolve this name; do not run it again just
+			// because Crestron Home replayed AppleTvName on a reinit. Discovery should only
+			// run again if the name genuinely changes (handled above), the paired endpoint
+			// fails to connect (handled above), or pairing itself fails (handled in
+			// CompletePairingAsync/BeginPairingAsync, which reuse this same saved record).
+			if (device is not null && !device.IsPaired)
+				{
+				LogDiagnostic ($"'{device.Name}' was already discovered and awaits Pair Now; skipping a redundant discovery scan.");
+				return;
 				}
 
 			if (string.IsNullOrWhiteSpace (appleTvName))
@@ -253,7 +316,18 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				}
 
 			// The Apple TV was discovered on the network but has no stored pairing credentials
-			// yet. Persist the discovered identity (name/address/port/unique id) so pairing,
+			// yet. If pairing was started and completed on another (newer) driver instance
+			// while this discovery scan was in flight, a paired record now exists for this
+			// unique id; do not clobber it with this stale, unpaired discovery record.
+			AppleTvStoredDevice existingDevice = AppleTvStoredDevice.LoadForName (appleTvName);
+			if (existingDevice is not null && existingDevice.IsPaired)
+				{
+				LogDiagnostic ($"Discovery for '{appleTvName}' completed after pairing already succeeded elsewhere; keeping the paired credentials.");
+				SaveStoredDevice (existingDevice);
+				return;
+				}
+
+			// Persist the discovered identity (name/address/port/unique id) so pairing,
 			// whenever the user initiates it, does not require another discovery pass. Source
 			// routing works regardless of the reported connection state, so the driver is kept
 			// offline here and only reports connected once a real Companion session is
@@ -277,7 +351,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		finally
 			{
-			_configureGate.Release ();
+			session.ConfigureGate.Release ();
 			}
 		}
 
@@ -312,6 +386,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			session.Address = device.Address;
 			session.Port = device.Port;
 			session.UniqueId = device.UniqueId;
+			session.Name = device.Name;
 			LogDiagnostic ($"Starting pairing for '{device.Name}'. Enter the PIN shown on the Apple TV.");
 			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Address, session.Port, default).ConfigureAwait (false);
 			SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
@@ -415,6 +490,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		session.Address = string.Empty;
 		session.Port = 0;
 		session.UniqueId = string.Empty;
+		session.Name = string.Empty;
 		}
 
 	private void SetAppleTvNameStatus (string description)

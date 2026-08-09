@@ -34,4 +34,30 @@ internal sealed class AppleTvPairingSessionState
 	internal string Address = string.Empty;
 	internal int Port;
 	internal string UniqueId = string.Empty;
+
+	// Serializes ConfigureAppleTvAsync (which includes a discovery scan of up
+	// to five seconds) across driver instances. This must be static rather
+	// than an instance-owned SemaphoreSlim: Crestron Home can recreate the
+	// driver instance (e.g. right after PairNow starts pairing) while an
+	// older instance's ConfigureAppleTvAsync call is still awaiting its
+	// discovery scan. With a per-instance gate that stale call is not
+	// serialized against the new instance's pairing/connect flow at all, so
+	// it can resume after pairing has already succeeded and overwrite the
+	// just-saved paired credentials with a stale, unpaired discovery record.
+	internal readonly SemaphoreSlim ConfigureGate = new SemaphoreSlim (1, 1);
+
+	// The Apple TV name the active Pairing session was started for. Crestron Home
+	// replays AppleTvName (with its unchanged value) on every config reinit,
+	// including reinits triggered by PairNow/PairingPin themselves. Comparing
+	// against this lets HandleAppleTvNameChangedAsync tell a genuine user rename
+	// apart from that replay, so it does not tear down its own in-flight or
+	// just-completing pairing session.
+	internal string Name = string.Empty;
+
+	// Last observed PairNow attribute value, used to edge-trigger pairing
+	// (false -> true) instead of treating every True as a new request. This
+	// must live here rather than on AppleTvVideoServerProtocol because that
+	// protocol instance is itself recreated on every reinit; an instance
+	// field would reset to false and see a replayed True as a fresh edge.
+	internal bool LastPairNowValue;
 	}
