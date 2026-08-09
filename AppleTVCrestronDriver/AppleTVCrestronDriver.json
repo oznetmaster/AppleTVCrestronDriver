@@ -7,7 +7,46 @@
 				"Label": "Apple TV Name",
 				"Description": "The Apple TV name supplied to the Companion Link session.",
 				"Persistent": true,
-				"RequiredForConnection": "None",
+				"RequiredForConnection": "Before",
+				"Data": {
+					"DataType": "String",
+					"Mask": "",
+					"DefaultValue": ""
+				}
+			},
+			{
+				"TypeName": "Custom",
+				"ParameterId": "PairNow",
+				"Label": "Pair Now",
+				"Description": "The Apple TV was found on the network but is not yet paired. Turn this on to start pairing.",
+				"Persistent": true,
+				"RequiredForConnection": "After",
+				"Data": {
+					"DataType": "Boolean",
+					"Mask": "",
+					"DefaultValue": "False"
+				}
+			},
+			{
+				"TypeName": "MessageBox",
+				"ParameterId": "AppleTvPairingNotice",
+				"Label": "Pair Apple TV",
+				"Description": "A pairing code is now displayed on the Apple TV. Enter it below to complete pairing.",
+				"Persistent": true,
+				"RequiredForConnection": "After",
+				"Data": {
+					"DataType": "",
+					"Mask": "",
+					"DefaultValue": ""
+				}
+			},
+			{
+				"TypeName": "OnScreenId",
+				"ParameterId": "PairingPin",
+				"Label": "Pairing PIN",
+				"Description": "Enter the four-digit pairing code currently displayed on the Apple TV.",
+				"Persistent": true,
+				"RequiredForConnection": "After",
 				"Data": {
 					"DataType": "String",
 					"Mask": "",
@@ -23,7 +62,7 @@
 			"Guid": "725C8A9E-1A85-4FC2-9B95-D20A488A4762",
 			"DeviceType": "Video Server",
 			"Manufacturer": "Apple",
-			"VersionDate": "2026-08-06 17:38:34.115",
+			"VersionDate": "2026-08-08 13:51:37.720",
 			"Developer": {
 				"PhoneNumber": "",
 				"Contact": "Neil Colvin",
@@ -31,7 +70,7 @@
 				"Email": "",
 				"Company": "Neil Colvin"
 			},
-			"DriverVersion": "1.0.000.0090",
+			"DriverVersion": "1.0.000.0144",
 			"DependencyGroup": "",
 			"SupportedModels": ["Apple TV Companion"]
 		},

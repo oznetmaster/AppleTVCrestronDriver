@@ -1,5 +1,7 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using AppleTvControlLibrary.Discovery.Companion;
@@ -20,13 +22,18 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	private const string STORED_DEVICE_SETTING_KEY = "AppleTvStoredDevice";
 	private const string PAIRING_NOTICE_ATTRIBUTE_ID = "AppleTvPairingNotice";
 	private const string PAIRING_PIN_ATTRIBUTE_ID = "PairingPin";
+	private const string PAIR_NOW_ATTRIBUTE_ID = "PairNow";
 
+	private readonly SemaphoreSlim _configureGate = new SemaphoreSlim (1, 1);
 	private AppleTvNoOpTransport _transport;
-	private AppleTvCompanionPairing _pairing;
 	private AppleTvStoredDevice _storedDevice;
-	private string _pairingAddress = string.Empty;
-	private int _pairingPort;
-	private string _pairingUniqueId = string.Empty;
+
+	// Pairing state lives in a static singleton (AppleTvPairingSessionState.Instance)
+	// rather than on instance fields, because Crestron Home reinitializes (disposes
+	// and recreates) this driver instance whenever a configuration attribute is
+	// applied - including PairNow and PairingPin themselves. Instance fields would
+	// be torn down mid-handshake, causing a recreated instance to race a second
+	// BeginAsync against the Apple TV instead of resuming the original one.
 
 	/// <summary>
 	/// Initializes the Video Server driver and begins connection or pairing for the configured Apple TV.
@@ -48,11 +55,17 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			};
 		protocol.AppleTvNameChanged += appleTvName => _ = HandleAppleTvNameChangedAsync (protocol, appleTvName);
 		protocol.PairingPinChanged += pairingPin => _ = HandlePairingPinChangedAsync (protocol, pairingPin);
+		protocol.PairNowRequested += () => _ = HandlePairNowRequestedAsync (protocol);
 		protocol.StateChange += StateChange;
 		protocol.RxOut += SendRxOut;
 		protocol.Initialize (VideoServerData);
 		VideoServerProtocol = protocol;
 
+		// PairNow, AppleTvPairingNotice, and PairingPin are declared statically in the
+		// driver's json manifest, so they always exist and are never added or removed at
+		// runtime. Any in-flight pairing session survives this reinitialization because
+		// it lives in the static AppleTvPairingSessionState singleton rather than on
+		// this instance.
 		_ = ConfigureAppleTvAsync (protocol, protocol.AppleTvName);
 		}
 
@@ -61,38 +74,84 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	/// </summary>
 	public override void Dispose ()
 		{
-		_pairing?.Dispose ();
+		// Do not dispose the pairing session or its gate here: they are owned by
+		// the static AppleTvPairingSessionState singleton so an in-flight pairing
+		// handshake survives this instance being recreated by a host config
+		// reinit, and are only released by ClearPairing when pairing actually
+		// completes, fails, or is superseded.
+		_configureGate.Dispose ();
 		base.Dispose ();
 		}
 
+	// These are invoked as fire-and-forget from synchronous RAD SDK event delegates
+	// (Action/Action<string>), which offer no way to await a result back into
+	// SetUserAttribute. Every path must therefore be wrapped in try/catch so that
+	// nothing throws synchronously into the SDK's callback and no exception,
+	// synchronous or asynchronous, is ever left unobserved.
 	private async Task HandleAppleTvNameChangedAsync (AppleTvVideoServerProtocol protocol, string appleTvName)
 		{
-		LogDiagnostic ($"Apple TV name configured as '{appleTvName}'.");
-		ClearPairing ();
-		await ConfigureAppleTvAsync (protocol, appleTvName).ConfigureAwait (false);
+		try
+			{
+			LogDiagnostic ($"Apple TV name configured as '{appleTvName}'.");
+			ClearPairing ();
+			await ConfigureAppleTvAsync (protocol, appleTvName).ConfigureAwait (false);
+			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			}
 		}
 
 	private async Task HandlePairingPinChangedAsync (AppleTvVideoServerProtocol protocol, string pairingPin)
 		{
-		LogDiagnostic ($"Pairing PIN received ({pairingPin.Length} digits)." );
-		if (_pairing is null)
+		try
 			{
-			await ConfigureAppleTvAsync (protocol, protocol.AppleTvName).ConfigureAwait (false);
+			LogDiagnostic ($"Pairing PIN received ({pairingPin.Length} digits).");
+			await CompletePairingAsync (protocol, pairingPin).ConfigureAwait (false);
 			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			}
+		}
 
-		await CompletePairingAsync (protocol, pairingPin).ConfigureAwait (false);
+	private async Task HandlePairNowRequestedAsync (AppleTvVideoServerProtocol protocol)
+		{
+		try
+			{
+			LogDiagnostic ("Pair Now was requested.");
+			await BeginPairingAsync (protocol).ConfigureAwait (false);
+			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			}
 		}
 
 	private async Task ConfigureAppleTvAsync (AppleTvVideoServerProtocol protocol, string appleTvName)
 		{
+		await _configureGate.WaitAsync ().ConfigureAwait (false);
 		try
 			{
 			AppleTvStoredDevice device = LoadStoredDevice ();
+
+			// If the stored identity is only a discovery record (not yet paired) and the
+			// configured Apple TV name no longer matches it, the user has typed a different
+			// name. Discard the stale discovery record so the new name drives a fresh lookup
+			// instead of silently reconnecting to the previously discovered device.
+			if (device is not null && !device.IsPaired
+				&& !string.IsNullOrWhiteSpace (appleTvName)
+				&& !string.Equals (device.Name, appleTvName, StringComparison.OrdinalIgnoreCase))
+				{
+				LogDiagnostic ($"Configured Apple TV name '{appleTvName}' no longer matches the discovered identity '{device.Name}'; discarding the stale discovery record.");
+				device = null;
+				}
+
 			if (device is null)
 				{
 				if (string.IsNullOrWhiteSpace (appleTvName))
 					{
-					LogDiagnostic ("No Apple TV name is configured and device settings do not contain paired credentials.");
+					LogDiagnostic ("No Apple TV name is configured and device settings do not contain a discovered or paired identity.");
 					return;
 					}
 
@@ -100,18 +159,18 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				if (device is not null)
 					{
 					SaveStoredDevice (device);
-					ClearPairing ();
-					SetAppleTvNameStatus ("Existing paired credentials were found for this Apple TV name.");
-					LogDiagnostic ($"Initialized device settings from the shared credentials for '{device.Name}'.");
+					SetAppleTvNameStatus (device.IsPaired
+						? "Existing paired credentials were found for this Apple TV name."
+						: "A previously discovered identity was found for this Apple TV name.");
+					LogDiagnostic ($"Initialized device settings from the shared record for '{device.Name}'.");
 					}
 				}
 
-			if (device is not null)
+			if (device is not null && device.IsPaired)
 				{
 				try
 					{
 					LogDiagnostic ($"Attempting saved endpoint for '{device.Name}' at {device.Address}:{device.Port}.");
-					ClearPairing ();
 					await ConnectCompanionAsync (protocol, device, device.Address, device.Port).ConfigureAwait (false);
 					LogDiagnostic ($"Connected to '{device.Name}' using its saved endpoint.");
 					return;
@@ -139,7 +198,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				}
 			else
 				{
-				LogDiagnostic ($"Discovering the paired Apple TV by its saved identity for up to five seconds.");
+				LogDiagnostic ("Discovering the known Apple TV by its saved identity for up to five seconds.");
 				discovered = (await new MulticastCompanionDiscovery ().ScanAsync (TimeSpan.FromSeconds (5)).ConfigureAwait (false))
 					.FirstOrDefault (result => string.Equals (result.UniqueId, device.UniqueId, StringComparison.Ordinal));
 				}
@@ -148,19 +207,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				{
 				LogDiagnostic (device is null
 					? $"Discovery did not find '{appleTvName}'."
-					: "Discovery did not find the paired Apple TV identity.");
+					: "Discovery did not find the known Apple TV identity.");
 				LogException (new InvalidOperationException ("The required Apple TV was not found by Companion Link discovery."));
 				if (device is null)
 					{
 					SetAppleTvNameStatus ($"No Apple TV named '{appleTvName}' was found. Check the name and ensure the Apple TV is online on the local network.");
 					}
 
-					return;
+				return;
 				}
 
 			LogDiagnostic ($"Discovery resolved '{discovered.Name}' at {discovered.Address}:{discovered.Port}.");
 
-			if (device is not null)
+			if (device is not null && device.IsPaired)
 				{
 				if (string.IsNullOrWhiteSpace (device.UniqueId) || !string.Equals (discovered.UniqueId, device.UniqueId, StringComparison.Ordinal))
 					{
@@ -169,52 +228,145 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					return;
 					}
 
-				device.Address = discovered.Address.ToString ();
+				string discoveredAddress = discovered.Address.ToString ();
+				bool endpointChanged = !string.Equals (device.Address, discoveredAddress, StringComparison.Ordinal)
+					|| device.Port != discovered.Port
+					|| !string.Equals (device.Name, discovered.Name, StringComparison.Ordinal);
+
+				device.Address = discoveredAddress;
 				device.Port = discovered.Port;
 				device.Name = discovered.Name;
-				AppleTvStoredDevice.Save (device);
+				if (endpointChanged)
+					{
+					AppleTvStoredDevice.Save (device);
+					LogDiagnostic ($"Saved endpoint refreshed for '{device.Name}'; reconnecting.");
+					}
+				else
+					{
+					LogDiagnostic ($"Discovered endpoint for '{device.Name}' is unchanged; reconnecting without rewriting stored credentials.");
+					}
+
 				SaveStoredDevice (device);
-				LogDiagnostic ($"Saved endpoint refreshed for '{device.Name}'; reconnecting.");
 				await ConnectCompanionAsync (protocol, device, device.Address, device.Port).ConfigureAwait (false);
 				LogDiagnostic ($"Connected to '{device.Name}' after endpoint recovery.");
 				return;
 				}
 
-			if (_pairing is null)
+			// The Apple TV was discovered on the network but has no stored pairing credentials
+			// yet. Persist the discovered identity (name/address/port/unique id) so pairing,
+			// whenever the user initiates it, does not require another discovery pass. Source
+			// routing works regardless of the reported connection state, so the driver is kept
+			// offline here and only reports connected once a real Companion session is
+			// established (pairing complete and/or ConnectCompanionAsync succeeds).
+			var discoveredDevice = new AppleTvStoredDevice
 				{
-				_pairingAddress = discovered.Address.ToString ();
-				_pairingPort = discovered.Port;
-				_pairingUniqueId = discovered.UniqueId ?? string.Empty;
-				LogDiagnostic ($"Starting pairing for '{discovered.Name}'. Enter the PIN shown on the Apple TV.");
-				_pairing = await AppleTvCompanionPairing.BeginAsync (_pairingAddress, _pairingPort, default).ConfigureAwait (false);
-				ShowPairingAttributes (discovered.Name);
-				SetAppleTvNameStatus ("Apple TV found. Pairing is active; enter the code shown on the Apple TV.");
-				LogDiagnostic ($"Pairing setup is active for '{discovered.Name}'.");
-				}
+				Address = discovered.Address.ToString (),
+				Port = discovered.Port,
+				Name = discovered.Name,
+				UniqueId = discovered.UniqueId ?? string.Empty,
+				};
+			AppleTvStoredDevice.Save (discoveredDevice);
+			SaveStoredDevice (discoveredDevice);
+			SetAppleTvNameStatus ($"'{discovered.Name}' was found on the network. Press Pair Now to complete pairing.");
+			LogDiagnostic ($"Discovered but unpaired identity persisted for '{discovered.Name}'; awaiting Pair Now.");
 			}
 		catch (Exception exception)
 			{
 			LogException (exception);
-			if (_pairing is null)
+			SetAppleTvNameStatus ($"The Apple TV name could not be validated: {exception.Message}");
+			}
+		finally
+			{
+			_configureGate.Release ();
+			}
+		}
+
+	/// <summary>
+	/// Starts Companion Link pairing using the persisted discovery identity (address/port),
+	/// requiring no additional network discovery, and shows the PIN entry attributes.
+	/// </summary>
+	private async Task BeginPairingAsync (AppleTvVideoServerProtocol protocol)
+		{
+		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+		await session.Gate.WaitAsync ().ConfigureAwait (false);
+		try
+			{
+			AppleTvStoredDevice device = LoadStoredDevice ();
+			if (device is null || device.IsPaired || string.IsNullOrWhiteSpace (device.Address))
 				{
-				SetAppleTvNameStatus ($"The Apple TV name could not be validated: {exception.Message}");
+				LogDiagnostic ("Pair Now was requested, but no discovered (unpaired) Apple TV identity is available.");
+				return;
 				}
+
+			// If a pairing handshake is already active for this device (started by
+			// an instance the host has since recreated), do not start a second,
+			// competing BeginAsync against the same Apple TV; let the existing
+			// session run and be completed by CompletePairingAsync instead.
+			if (session.Pairing is not null)
+				{
+				LogDiagnostic ($"Pairing is already active for '{device.Name}'; ignoring the repeated Pair Now request.");
+				SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
+				return;
+				}
+
+			session.Address = device.Address;
+			session.Port = device.Port;
+			session.UniqueId = device.UniqueId;
+			LogDiagnostic ($"Starting pairing for '{device.Name}'. Enter the PIN shown on the Apple TV.");
+			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Address, session.Port, default).ConfigureAwait (false);
+			SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
+			LogDiagnostic ($"Pairing setup is active for '{device.Name}'.");
+			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			SetAppleTvNameStatus ($"Pairing could not be started: {exception.Message}");
+			}
+		finally
+			{
+			session.Gate.Release ();
 			}
 		}
 
 	private async Task CompletePairingAsync (AppleTvVideoServerProtocol protocol, string pairingPin)
 		{
-		if (_pairing is null || pairingPin.Length != 4 || !int.TryParse (pairingPin, out int pin) || pin < 0 || pin > 9999 || string.IsNullOrWhiteSpace (protocol.AppleTvName))
+		// "0000" is the manifest's placeholder DefaultValue for PairingPin (an
+		// OnScreenId field). Configure Pro will not enable Next while an
+		// OnScreenId field is empty, but the real PIN cannot exist until PairNow
+		// has been submitted and pairing has actually started on the Apple TV.
+		// The placeholder lets Next be pressed at all, but it is never a real
+		// PIN typed by the user and must never be attempted against the device.
+		if (string.Equals (pairingPin, "0000", StringComparison.Ordinal))
 			{
-			LogDiagnostic ("Pairing PIN was ignored because pairing is not active, the PIN is invalid, or no Apple TV name is configured.");
+			LogDiagnostic ("Pairing PIN was ignored because it is still the placeholder value.");
 			return;
 			}
 
+		if (pairingPin.Length != 4 || !int.TryParse (pairingPin, out int pin) || pin < 0 || pin > 9999 || string.IsNullOrWhiteSpace (protocol.AppleTvName))
+			{
+			LogDiagnostic ("Pairing PIN was ignored because the PIN is invalid or no Apple TV name is configured.");
+			return;
+			}
+
+		// Crestron Home can apply PairNow and PairingPin back-to-back in the same
+		// configuration batch, and may even recreate the driver instance between
+		// them. Wait for any in-flight BeginPairingAsync (on this or a recreated
+		// instance, since the gate lives in the static registry) to finish before
+		// deciding whether a pairing session exists, instead of racing against it
+		// and seeing a stale null Pairing.
+		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+		await session.Gate.WaitAsync ().ConfigureAwait (false);
 		try
 			{
+			if (session.Pairing is null)
+				{
+				LogDiagnostic ("Pairing PIN was ignored because pairing is not active.");
+				return;
+				}
+
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
-			AppleTvStoredDevice device = await _pairing.CompleteAsync (pin, protocol.AppleTvName, _pairingAddress, _pairingPort, default).ConfigureAwait (false);
-			device.UniqueId = _pairingUniqueId;
+			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Address, session.Port, default).ConfigureAwait (false);
+			device.UniqueId = session.UniqueId;
 			AppleTvStoredDevice.Save (device);
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
@@ -225,9 +377,13 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		catch (Exception exception)
 			{
 			ClearPairing ();
-			LogDiagnostic ($"Pairing failed for '{protocol.AppleTvName}'; restarting pairing setup for retry.");
+			LogDiagnostic ($"Pairing failed for '{protocol.AppleTvName}'; showing Pair Now for retry.");
 			LogException (exception);
-			_ = ConfigureAppleTvAsync (protocol, protocol.AppleTvName);
+			SetAppleTvNameStatus ($"Pairing failed: {exception.Message}");
+			}
+		finally
+			{
+			session.Gate.Release ();
 			}
 		}
 
@@ -248,45 +404,17 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private void ClearPairing ()
 		{
-		if (_pairing is not null)
+		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+		if (session.Pairing is not null)
 			{
 			LogDiagnostic ("Clearing the active pairing session.");
 			}
 
-		_pairing?.Dispose ();
-		_pairing = null;
-		_pairingAddress = string.Empty;
-		_pairingPort = 0;
-		_pairingUniqueId = string.Empty;
-		HidePairingAttributes ();
-		}
-
-	private void ShowPairingAttributes (string appleTvName)
-		{
-		RemoveUserAttribute (PAIRING_NOTICE_ATTRIBUTE_ID);
-		RemoveUserAttribute (PAIRING_PIN_ATTRIBUTE_ID);
-		AddUserAttribute (
-			UserAttributeType.MessageBox,
-			PAIRING_NOTICE_ATTRIBUTE_ID,
-			"Pair Apple TV",
-			$"A pairing code is now displayed on {appleTvName}. Enter it below to complete pairing.",
-			false,
-			UserAttributeRequiredForConnectionType.None);
-		AddUserAttribute (
-			UserAttributeType.OnScreenId,
-			PAIRING_PIN_ATTRIBUTE_ID,
-			"Pairing PIN",
-			"Enter the four-digit pairing code currently displayed on the Apple TV.",
-			false,
-			UserAttributeRequiredForConnectionType.None,
-			UserAttributeDataType.String,
-			string.Empty);
-		}
-
-	private void HidePairingAttributes ()
-		{
-		RemoveUserAttribute (PAIRING_NOTICE_ATTRIBUTE_ID);
-		RemoveUserAttribute (PAIRING_PIN_ATTRIBUTE_ID);
+		session.Pairing?.Dispose ();
+		session.Pairing = null;
+		session.Address = string.Empty;
+		session.Port = 0;
+		session.UniqueId = string.Empty;
 		}
 
 	private void SetAppleTvNameStatus (string description)
@@ -299,7 +427,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		try
 			{
 			var storedDevice = GetSetting (STORED_DEVICE_SETTING_KEY) as AppleTvStoredDevice;
-			if (storedDevice is not null && !string.IsNullOrWhiteSpace (storedDevice.UniqueId) && !string.IsNullOrWhiteSpace (storedDevice.StableIdentifier))
+			if (storedDevice is not null && !string.IsNullOrWhiteSpace (storedDevice.UniqueId))
 				{
 				_storedDevice = storedDevice;
 				return _storedDevice;
@@ -321,17 +449,25 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private void LogException (Exception exception)
 		{
-		LogDiagnostic ($"{exception.GetType ().FullName}: {exception.Message}");
+		// Exceptions must be visible in both Debug and Release builds, so this
+		// logs directly rather than going through the DEBUG-only LogDiagnostic.
+		string diagnostic = $"[AppleTV] {exception.GetType ().FullName}: {exception.Message}";
+		CrestronConsole.PrintLine (diagnostic);
+		ErrorLog.Notice (diagnostic);
 		}
 
+	[Conditional ("DEBUG")]
 	private void LogDiagnostic (string message)
 		{
-		#if DEBUG
-		CrestronConsole.PrintLine ($"[AppleTV] {message}");
-		#endif
-		if (InternalEnableLogging)
-			{
-			Log ($"[AppleTV] {message}");
-			}
+		// Write straight to the processor console/error log instead of going
+		// through the RAD Log() hook, which is routed through Crestron Home
+		// and can be filtered/delayed/interleaved with its own logging.
+		// EnableLogging is not set until after the driver is constructed and
+		// Initialize() runs, so gating on it here would silently drop every
+		// diagnostic emitted during construction/load and the initial
+		// SetUserAttribute calls that follow.
+		string diagnostic = $"[AppleTV] {message}";
+		CrestronConsole.PrintLine (diagnostic);
+		ErrorLog.Notice (diagnostic);
 		}
 	}

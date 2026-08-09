@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -37,9 +38,21 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 	private readonly object _pressedArrowLock = new object ();
 	private readonly SemaphoreSlim _sendGate = new SemaphoreSlim (1, 1);
 
+	// Crestron Home re-applies the entire current configuration form (every
+	// attribute's last known value, not just the one the user changed) whenever
+	// it re-initializes the driver - which happens, for example, right after a
+	// pairing attempt fails and the driver restarts. Since PairNow is a boolean
+	// toggle rather than a momentary/pulse control, that replay resends
+	// PairNow = True even though the user did not press it again. Tracking the
+	// last observed value here lets PairNow be treated as edge-triggered
+	// (false -> true) instead of level-triggered, so a replayed True is ignored.
+	private bool _lastPairNowValue;
+
 	internal event Action<string> AppleTvNameChanged;
 
 	internal event Action<string> PairingPinChanged;
+
+	internal event Action PairNowRequested;
 
 	internal AppleTvVideoServerProtocol (ISerialTransport transportDriver, byte id)
 		 : base (transportDriver, id)
@@ -56,12 +69,40 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			stableIdentifier,
 			appleTvName,
 			CancellationToken.None,
-			LogDiagnostic).ConfigureAwait (false);
+			message => LogDiagnostic (message)).ConfigureAwait (false);
 		_session.ConnectionStateChanged += SetCompanionConnectionState;
 		SetCompanionConnectionState (true);
 		}
 
 	internal string AppleTvName { get; private set; } = string.Empty;
+
+	/// <summary>
+	/// Receives boolean user attribute changes made in Crestron Home (e.g. the
+	/// "Pair Now" trigger, which is modeled as a Custom/Boolean attribute).
+	/// </summary>
+	/// <param name="attributeId">The manifest parameter identifier.</param>
+	/// <param name="attributeValue">The configured parameter value.</param>
+	public override void SetUserAttribute (string attributeId, bool attributeValue)
+		{
+		LogDiagnostic ($"SetUserAttribute(bool): {attributeId} = {attributeValue}");
+
+		if (string.Equals (attributeId, "PairNow", StringComparison.Ordinal))
+			{
+			// Edge-triggered: only fire on a false -> true transition so that
+			// Crestron Home replaying the last-known form state (e.g. after the
+			// driver reinitializes) does not silently restart pairing without
+			// the user actually pressing Pair Now again.
+			if (attributeValue && !_lastPairNowValue)
+				{
+				PairNowRequested?.Invoke ();
+				}
+
+			_lastPairNowValue = attributeValue;
+			return;
+			}
+
+		base.SetUserAttribute (attributeId, attributeValue);
+		}
 
 	/// <summary>
 	/// Receives user attribute changes made in Crestron Home.
@@ -70,6 +111,8 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 	/// <param name="attributeValue">The configured parameter value.</param>
 	public override void SetUserAttribute (string attributeId, string attributeValue)
 		{
+		LogDiagnostic ($"SetUserAttribute(string): {attributeId} = {attributeValue}");
+
 		if (string.Equals (attributeId, "AppleTvName", StringComparison.Ordinal))
 			{
 			AppleTvName = attributeValue?.Trim () ?? string.Empty;
@@ -81,6 +124,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			{
 			PairingPin = attributeValue?.Trim () ?? string.Empty;
 			PairingPinChanged?.Invoke (PairingPin);
+			return;
 			}
 		}
 
@@ -208,19 +252,19 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			}
 		}
 
+	[Conditional ("DEBUG")]
 	private void LogDiagnostic (string message)
 		{
-		#if DEBUG
-		if (EnableLogging)
-			{
-			// Write straight to the processor console/error log instead of going
-			// through the RAD Log() hook, which is routed through Crestron Home
-			// and can be filtered/delayed/interleaved with its own logging.
-			string diagnostic = $"[AppleTV] {message}";
-			CrestronConsole.PrintLine (diagnostic);
-			ErrorLog.Notice (diagnostic);
-			}
-		#endif
+		// Write straight to the processor console/error log instead of going
+		// through the RAD Log() hook, which is routed through Crestron Home
+		// and can be filtered/delayed/interleaved with its own logging.
+		// EnableLogging is not set until after the driver is constructed and
+		// Initialize() runs, so gating on it here would silently drop every
+		// diagnostic emitted during construction/load and the initial
+		// SetUserAttribute calls that follow.
+		string diagnostic = $"[AppleTV] {message}";
+		CrestronConsole.PrintLine (diagnostic);
+		ErrorLog.Notice (diagnostic);
 		}
 
 	public override void Select () => SendHid (HidCommand.Select);

@@ -27,6 +27,13 @@ internal sealed class AppleTvStoredDevice
 
 	public byte[] ClientId { get; set; } = [];
 
+	/// <summary>
+	/// Gets a value indicating whether this record has full Companion Link pairing
+	/// credentials, as opposed to being a discovery-only record (name/address/port/unique id
+	/// persisted before pairing has ever completed).
+	/// </summary>
+	public bool IsPaired => Ltpk.Length > 0 && Ltsk.Length > 0 && AtvId.Length > 0 && ClientId.Length > 0;
+
 	internal HapCredentials ToCredentials () => new (Ltpk, Ltsk, AtvId, ClientId);
 
 	internal static AppleTvStoredDevice LoadForName (string name)
@@ -125,7 +132,7 @@ internal sealed class AppleTvStoredDevice
 	private static string GetPathKey (string value)
 		{
 		char[] invalidCharacters = Path.GetInvalidFileNameChars ();
-		char[] characters = value.Trim ().ToLowerInvariant ().ToCharArray ();
+		char[] characters = value.Trim ().ToUpperInvariant ().ToCharArray ();
 		for (int index = 0; index < characters.Length; index++)
 			{
 			if (Array.IndexOf (invalidCharacters, characters[index]) >= 0)
