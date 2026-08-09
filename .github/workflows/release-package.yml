@@ -141,7 +141,7 @@ jobs:
             }
 
             $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $driverVersion = $manifest.GeneralInformation.DriverVersion
+            $driverVersion = $manifest.CrestronSerialDeviceApi.GeneralInformation.DriverVersion
             if ([string]::IsNullOrWhiteSpace($driverVersion)) {
               throw 'DriverVersion is missing from the driver manifest.'
             }
