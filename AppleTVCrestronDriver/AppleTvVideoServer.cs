@@ -133,7 +133,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			// genuinely changed; otherwise this replay would tear down the very
 			// pairing handshake that PairNow/PairingPin just started or completed.
 			AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
-			if (session.Pairing is not null && !string.Equals (session.Name, appleTvName, StringComparison.OrdinalIgnoreCase))
+			if (session.Pairing is not null && !string.Equals (session.Target.Name, appleTvName, StringComparison.OrdinalIgnoreCase))
 				{
 				ClearPairing ();
 				}
@@ -404,12 +404,9 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				return;
 				}
 
-			session.Address = device.Address;
-			session.Port = device.Port;
-			session.UniqueId = device.UniqueId;
-			session.Name = device.Name;
+			session.Target = new PairingTarget (device.Address, device.Port, device.UniqueId, device.Name);
 			LogDiagnostic ($"Starting pairing for '{device.Name}'. Enter the PIN shown on the Apple TV.");
-			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Address, session.Port, default).ConfigureAwait (false);
+			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
 			SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
 			LogDiagnostic ($"Pairing setup is active for '{device.Name}'.");
 			}
@@ -466,8 +463,8 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				}
 
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
-			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Address, session.Port, default).ConfigureAwait (false);
-			device.UniqueId = session.UniqueId;
+			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
+			device.UniqueId = session.Target.UniqueId;
 			AppleTvStoredDevice.Save (device);
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
@@ -530,12 +527,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			LogDiagnostic ("Clearing the active pairing session.");
 			}
 
-		session.Pairing?.Dispose ();
-		session.Pairing = null;
-		session.Address = string.Empty;
-		session.Port = 0;
-		session.UniqueId = string.Empty;
-		session.Name = string.Empty;
+		session.Clear ();
 		}
 
 	private void SetAppleTvNameStatus (string description) => LogDiagnostic (description);

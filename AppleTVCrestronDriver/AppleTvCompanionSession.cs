@@ -44,6 +44,21 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 	internal event Action<bool> ConnectionStateChanged;
 
+	// Raised whenever the Apple TV's pushed SystemStatus/TVSystemStatus updates
+	// indicate the device's power state (asleep vs. awake/screensaver/idle) has
+	// changed, so the driver can reflect it in Crestron Home instead of only
+	// ever reporting "on" once Companion Link is connected.
+	internal event Action<bool> PowerStateChanged;
+
+	// Mirrors CompanionApi's own Asleep/Unknown -> off mapping so callers can
+	// read the currently known power state without waiting for a change event
+	// (e.g. to seed Crestron Home's PowerIsOn right after connect, since
+	// ConnectAsync's best-effort initial snapshot does not raise
+	// SystemStatusChanged even when it successfully learns the state).
+	internal bool IsPoweredOn => Api is not null
+		&& Api.CurrentSystemStatus != SystemStatus.Asleep
+		&& Api.CurrentSystemStatus != SystemStatus.Unknown;
+
 	internal static async Task<AppleTvCompanionSession> ConnectAsync (
 		 string host,
 		 int port,
@@ -84,9 +99,16 @@ internal sealed class AppleTvCompanionSession : IDisposable
 				 Convert.ToString (credentials.AtvId),
 				 "AppleTV",
 				 appleTvName);
+			// Subscribed before ConnectAsync so that a status transition arriving
+			// during the connect sequence itself (rather than only afterwards)
+			// cannot be missed.
+			session.Api.SystemStatusChanged += session.HandleSystemStatusChanged;
 			await session.Api.ConnectAsync ().ConfigureAwait (false);
 			#if DEBUG
 			log?.Invoke ("Companion API session connected.");
+			#endif
+			#if DEBUG
+			session.Api.MediaControlCapabilitiesChanged += session.HandleMediaControlCapabilitiesChanged;
 			#endif
 			session.SetConnectionState (true);
 			return session;
@@ -105,9 +127,18 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 	internal async Task SendHidAsync (HidCommand command)
 		{
-		await Api.SendHidCommandAsync (true, command).ConfigureAwait (false);
-		await Api.SendHidCommandAsync (false, command).ConfigureAwait (false);
+		await SendHidDownAsync (command).ConfigureAwait (false);
+		await SendHidUpAsync (command).ConfigureAwait (false);
 		}
+
+	// Wake/Sleep are not a real button on the physical Siri Remote and are only
+	// recognized by the Apple TV as a single button-up event; sending them as a
+	// down+up pair (as SendHidAsync does for genuine buttons) is silently
+	// ignored for Wake, which is why "power on" previously did nothing while
+	// "power off" (Sleep) appeared to work.
+	internal Task SendWakeAsync () => SendHidUpAsync (HidCommand.Wake);
+
+	internal Task SendSleepAsync () => SendHidUpAsync (HidCommand.Sleep);
 
 	// True key-down/key-up semantics, matching the Ultamation reference driver's
 	// CLinkClient.Navigate(HidCommand, HidAction) model: the Companion transport
@@ -195,6 +226,14 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			}
 
 		_disposed = true;
+		if (Api is not null)
+			{
+			Api.SystemStatusChanged -= HandleSystemStatusChanged;
+			#if DEBUG
+			Api.MediaControlCapabilitiesChanged -= HandleMediaControlCapabilitiesChanged;
+			#endif
+			}
+
 		SetConnectionState (false);
 		_client.Close ();
 		}
@@ -212,4 +251,25 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		#endif
 		ConnectionStateChanged?.Invoke (connected);
 		}
+
+	// CompanionApi already de-dupes so this only fires on an actual on/off
+	// transition (Asleep <-> Screensaver/Awake/Idle), matching the pyatv
+	// power-state mapping it uses internally.
+	private void HandleSystemStatusChanged (object sender, EventArgs e)
+		{
+		bool isOn = Api.CurrentSystemStatus != SystemStatus.Asleep && Api.CurrentSystemStatus != SystemStatus.Unknown;
+		#if DEBUG
+		_log?.Invoke ($"Apple TV system status changed to {Api.CurrentSystemStatus} (power {(isOn ? "on" : "off")}).");
+		#endif
+		PowerStateChanged?.Invoke (isOn);
+		}
+
+	#if DEBUG
+	// Diagnostic-only for now: the driver's manifest does not expose a volume
+	// control attribute, so there is nothing to update in Crestron Home yet if
+	// IsVolumeControlSupported flips. Logged so this is visible if volume
+	// control support is added later.
+	private void HandleMediaControlCapabilitiesChanged (object sender, EventArgs e) =>
+		_log?.Invoke ($"Apple TV media control capabilities changed (volume control supported: {Api.IsVolumeControlSupported}).");
+	#endif
 	}

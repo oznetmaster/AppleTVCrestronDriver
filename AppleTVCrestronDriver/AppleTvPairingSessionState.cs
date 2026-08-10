@@ -6,6 +6,19 @@ using System.Threading;
 namespace AppleTV.CrestronDriver;
 
 /// <summary>
+/// Identifies the Apple TV a pairing session is (or was) started against.
+/// Address, Port, UniqueId, and Name are always set and cleared together as
+/// a single logical identity, so grouping them here (rather than as four
+/// independent fields on <see cref="AppleTvPairingSessionState"/>) makes
+/// that invariant a compile-time fact instead of a convention every call
+/// site has to reproduce by hand.
+/// </summary>
+internal sealed record PairingTarget (string Address, int Port, string UniqueId, string Name)
+	{
+	internal static readonly PairingTarget Empty = new(string.Empty, 0, string.Empty, string.Empty);
+	}
+
+/// <summary>
 /// Holds in-flight Companion Link pairing state outside of any single
 /// <see cref="AppleTvVideoServer"/> instance. Crestron Home reinitializes
 /// (disposes and recreates) the driver instance whenever a configuration
@@ -33,10 +46,16 @@ internal sealed class AppleTvPairingSessionState
 	// CompletePairingAsync wait for any in-flight BeginPairingAsync (on this
 	// or a recreated instance) to finish before it inspects Pairing.
 	internal readonly SemaphoreSlim Gate = new(1, 1);
-	internal AppleTvCompanionPairing Pairing;
-	internal string Address = string.Empty;
-	internal int Port;
-	internal string UniqueId = string.Empty;
+	internal AppleTvCompanionPairing Pairing { get; set; }
+
+	// The Apple TV identity (address/port/unique id/name) the active Pairing
+	// session was started for. Crestron Home replays AppleTvName (with its
+	// unchanged value) on every config reinit, including reinits triggered by
+	// PairNow/PairingPin themselves. Comparing Target.Name lets
+	// HandleAppleTvNameChangedAsync tell a genuine user rename apart from
+	// that replay, so it does not tear down its own in-flight or
+	// just-completing pairing session.
+	internal PairingTarget Target { get; set; } = PairingTarget.Empty;
 
 	// Serializes ConfigureAppleTvAsync (which includes a discovery scan of up
 	// to five seconds) across driver instances. This must be static rather
@@ -49,20 +68,12 @@ internal sealed class AppleTvPairingSessionState
 	// just-saved paired credentials with a stale, unpaired discovery record.
 	internal readonly SemaphoreSlim ConfigureGate = new(1, 1);
 
-	// The Apple TV name the active Pairing session was started for. Crestron Home
-	// replays AppleTvName (with its unchanged value) on every config reinit,
-	// including reinits triggered by PairNow/PairingPin themselves. Comparing
-	// against this lets HandleAppleTvNameChangedAsync tell a genuine user rename
-	// apart from that replay, so it does not tear down its own in-flight or
-	// just-completing pairing session.
-	internal string Name = string.Empty;
-
 	// Last observed PairNow attribute value, used to edge-trigger pairing
 	// (false -> true) instead of treating every True as a new request. This
 	// must live here rather than on AppleTvVideoServerProtocol because that
 	// protocol instance is itself recreated on every reinit; an instance
 	// field would reset to false and see a replayed True as a fresh edge.
-	internal bool LastPairNowValue;
+	internal bool LastPairNowValue { get; set; }
 
 	// The protocol instance Crestron Home currently holds a live reference to
 	// (i.e. the one created by the most recent Initialize()). Crestron Home
@@ -80,7 +91,7 @@ internal sealed class AppleTvPairingSessionState
 	// to whichever protocol instance is actually current when the async work
 	// completes, instead of the possibly-stale instance captured when the
 	// chain started.
-	internal AppleTvVideoServerProtocol CurrentProtocol;
+	internal AppleTvVideoServerProtocol CurrentProtocol { get; set; }
 
 	// A PairingPin that arrived while the protocol instance handling it was
 	// (or turned out to be) stale - i.e. no longer ReferenceEquals to
@@ -91,5 +102,18 @@ internal sealed class AppleTvPairingSessionState
 	// happens on the instance Crestron Home is actually watching, instead
 	// of relying on the stale instance to hand off a partially completed
 	// operation.
-	internal string PendingPairingPin;
+	internal string PendingPairingPin { get; set; }
+
+	/// <summary>
+	/// Ends the active pairing session, if any, and resets the pairing
+	/// target back to empty. This lives here, rather than being reproduced
+	/// field-by-field at each call site, so resetting the session's related
+	/// fields together stays a single, compiler-checked operation.
+	/// </summary>
+	internal void Clear ()
+		{
+		Pairing?.Dispose ();
+		Pairing = null;
+		Target = PairingTarget.Empty;
+		}
 	}

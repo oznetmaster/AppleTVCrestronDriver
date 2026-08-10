@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using AppleTvControlLibrary.Auth;
 using AppleTvControlLibrary.Protocol;
 
+using Crestron.RAD.Common.BasicDriver;
 using Crestron.RAD.Common.Enums;
 using Crestron.RAD.Common.Transports;
 using Crestron.RAD.DeviceTypes.VideoServer;
@@ -77,7 +78,27 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			CancellationToken.None,
 			message => LogDiagnostic (message)).ConfigureAwait (false);
 		_session.ConnectionStateChanged += SetCompanionConnectionState;
+		_session.PowerStateChanged += SetPowerState;
 		SetCompanionConnectionState (true);
+
+		// ConnectAsync's initial best-effort power snapshot does not raise
+		// SystemStatusChanged even when it successfully learns the state, so
+		// PowerIsOn would otherwise be left at its default until the next
+		// pushed transition. Seed it explicitly from what is already known.
+		SetPowerState (_session.IsPoweredOn);
+		}
+
+	// Reflects the Apple TV's pushed power state (asleep vs. awake/screensaver/idle)
+	// into Crestron Home so the UI does not just show "on" the moment Companion
+	// Link connects and then never update again. PowerIsOn must be updated on
+	// the protocol itself (not just carried on the FireEvent payload): RAD's own
+	// warm-up/cool-down gating and command queueing logic (see IsSendable/
+	// IsQueueable in the base classes) reads this property directly.
+	private void SetPowerState (bool isOn)
+		{
+		LogDiagnostic ($"Apple TV power state changed to {(isOn ? "on" : "off")}.");
+		PowerIsOn = isOn;
+		FireEvent (VideoServerStateObjects.Power, new Power { PowerIsOn = isOn });
 		}
 
 	internal string AppleTvName { get; private set; } = string.Empty;
@@ -166,9 +187,9 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		IsConnected = connection;
 		}
 
-	public override void PowerOff () => SendHid (HidCommand.Sleep);
+	public override void PowerOff () => SendPowerCommand (isOn: false);
 
-	public override void PowerOn () => SendHid (HidCommand.Wake);
+	public override void PowerOn () => SendPowerCommand (isOn: true);
 
 	public override void Play () => SendMedia (MediaControlCommand.Play);
 
@@ -324,6 +345,18 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		if (_session is not null)
 			{
 			_ = SendAndLogAsync (() => _session.SendMediaCommandAsync (command));
+			}
+		}
+
+	// Wake/Sleep must be sent as a single button-up event, not the down+up pair
+	// SendHid uses for genuine remote buttons; sending Wake as a down+up pair
+	// is silently ignored by the device, which previously made the PowerOn
+	// button appear to do nothing while PowerOff (Sleep) worked.
+	private void SendPowerCommand (bool isOn)
+		{
+		if (_session is not null)
+			{
+			_ = SendAndLogAsync (() => isOn ? _session.SendWakeAsync () : _session.SendSleepAsync ());
 			}
 		}
 
