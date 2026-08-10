@@ -91,7 +91,18 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// runtime. Any in-flight pairing session survives this reinitialization because
 		// it lives in the static AppleTvPairingSessionState singleton rather than on
 		// this instance.
-		_ = ConfigureAppleTvAsync (protocol, protocol.AppleTvName);
+		//
+		// protocol.Initialize (VideoServerData) above already replays every configured
+		// user attribute - including AppleTvName - through SetUserAttribute, which raises
+		// AppleTvNameChanged and runs ConfigureAppleTvAsync via
+		// HandleAppleTvNameChangedAsync. Calling ConfigureAppleTvAsync again here would
+		// start a second, fully redundant discovery/connect pass concurrently with that
+		// one on every single Initialize, rather than only when the name actually has no
+		// configured value to replay.
+		if (string.IsNullOrWhiteSpace (protocol.AppleTvName))
+			{
+			_ = ConfigureAppleTvAsync (protocol, protocol.AppleTvName);
+			}
 		}
 
 	/// <summary>

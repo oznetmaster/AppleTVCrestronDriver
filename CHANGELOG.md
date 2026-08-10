@@ -4,14 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
-## [Unreleased]
-
 ## [1.1.1] - 2026-08-10
 
 ### Fixed
 
 - Power On no longer does nothing: Wake is now sent as a single button-up HID event instead of a down+up pair, which the Apple TV silently ignored.
 - Power state changes made externally (e.g. from the Apple TV Remote or another controller) are now reflected in Crestron Home instead of being received and discarded.
+- Pair Now could fail with "Frame transport failed; the session has been faulted" and silently ignore a subsequently entered PIN: a stale, concurrently-running saved-endpoint recovery pass could tear down the TCP session an in-flight pairing handshake was still using, faulting it mid-verification.
+- A pairing completed via Pair Now while saved-endpoint recovery was already in progress for the same Apple TV could have its freshly saved credentials immediately overwritten by that recovery pass reconnecting with the older, stale credentials, leaving the device unable to reconnect until Pair Now was run again.
+- Every driver initialization ran the saved-endpoint connect/discovery pass twice concurrently: once from the configured Apple TV name being replayed through `SetUserAttribute`, and once from an explicit, now-redundant call at the end of `Initialize()`.
 
 ### Changed
 
