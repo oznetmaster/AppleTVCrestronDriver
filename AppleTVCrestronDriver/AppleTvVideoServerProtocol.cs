@@ -3,7 +3,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -121,13 +120,21 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			// the user actually pressing Pair Now again. The last-observed value
 			// is kept on the static AppleTvPairingSessionState singleton because
 			// this protocol instance itself is recreated on every reinit.
+			//
+			// Crestron Home also replays this attribute's last-known value -
+			// which can be a leftover True from a previous manual Pair Now - on
+			// the very first Initialize after a process reload/reboot, when
+			// HasObservedPairNow is still false. That first observed value must
+			// only be recorded, never treated as a fresh edge, or every restart
+			// would silently kick off an unwanted pairing handshake.
 			AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
-			if (attributeValue && !session.LastPairNowValue)
+			if (attributeValue && !session.LastPairNowValue && session.HasObservedPairNow)
 				{
 				PairNowRequested?.Invoke ();
 				}
 
 			session.LastPairNowValue = attributeValue;
+			session.HasObservedPairNow = true;
 			return;
 			}
 
@@ -152,7 +159,19 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 		if (string.Equals (attributeId, "PairingPin", StringComparison.Ordinal))
 			{
-			PairingPin = attributeValue?.Trim () ?? string.Empty;
+			// Crestron Home replays every configured attribute with its
+			// last-known value on every driver reinit, including reinits
+			// triggered by other attributes (e.g. AppleTvName). Only raise
+			// PairingPinChanged on an actual change so an already-paired
+			// device does not repeatedly re-enter the pairing completion
+			// path with a stale PIN it already consumed.
+			string newPairingPin = attributeValue?.Trim () ?? string.Empty;
+			if (string.Equals (PairingPin, newPairingPin, StringComparison.Ordinal))
+				{
+				return;
+				}
+
+			PairingPin = newPairingPin;
 			PairingPinChanged?.Invoke (PairingPin);
 			return;
 			}
@@ -274,18 +293,26 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			_ => HidCommand.Up,
 			};
 
-	[Conditional ("DEBUG")]
 	private void LogDiagnostic (string message)
 		{
-		// Write straight to the processor console/error log instead of going
-		// through the RAD Log() hook, which is routed through Crestron Home
-		// and can be filtered/delayed/interleaved with its own logging.
-		// EnableLogging is not set until after the driver is constructed and
-		// Initialize() runs, so gating on it here would silently drop every
-		// diagnostic emitted during construction/load and the initial
-		// SetUserAttribute calls that follow.
-		string diagnostic = $"[AppleTV] {message}";
-		ErrorLog.Notice (diagnostic);
+		// Routed through the base class's own Log() (gated on EnableLogging,
+		// as every other RAD driver does), so diagnostics are visible in the
+		// field via Crestron Home's logging toggle rather than only in Debug
+		// builds. EnableLogging is not set until after the driver is
+		// constructed and Initialize() runs, so diagnostics emitted during
+		// construction/load and the initial SetUserAttribute calls are
+		// unavoidably dropped; that is an acceptable startup-only gap.
+		if (EnableLogging)
+			{
+			Log ($"[AppleTV] {message}");
+			}
+
+		#if DEBUG
+		// Also write straight to the processor console/error log in Debug
+		// builds, since it is not routed through Crestron Home and is not
+		// subject to EnableLogging, filtering, or delay/interleaving.
+		ErrorLog.Notice ($"[AppleTV] {message}");
+		#endif
 		}
 
 	public override void Select () => SendHid (HidCommand.Select);
@@ -379,10 +406,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			}
 		catch (Exception exception)
 			{
-			if (EnableLogging)
-				{
-				Log (exception.Message);
-				}
+			LogDiagnostic (exception.Message);
 			}
 		}
 	}

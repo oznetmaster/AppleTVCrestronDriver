@@ -51,6 +51,9 @@
 		<AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
 			<_Parameter1>bc188e51-ede8-4dec-9861-fc7ff4233d37</_Parameter1>
 		</AssemblyAttribute>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>AppleTVCrestronDriver.Tests</_Parameter1>
+		</AssemblyAttribute>
 	</ItemGroup>
 
 	<ItemGroup>

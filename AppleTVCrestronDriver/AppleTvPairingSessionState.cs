@@ -75,6 +75,18 @@ internal sealed class AppleTvPairingSessionState
 	// field would reset to false and see a replayed True as a fresh edge.
 	internal bool LastPairNowValue { get; set; }
 
+	// Whether LastPairNowValue reflects a value actually observed from
+	// Crestron Home yet in this process's lifetime. Crestron Home persists
+	// and replays the PairNow attribute's last-known value - including True,
+	// left over from a previous manual Pair Now - on the very first
+	// Initialize after a reload/reboot, when there is no prior in-memory
+	// value to compare against. Without this flag, LastPairNowValue's default
+	// of false would make that replayed True look like a fresh false->true
+	// edge and silently kick off a real, unwanted pairing handshake on every
+	// startup. The first observed value, whatever it is, must only be
+	// recorded, never treated as a user request.
+	internal bool HasObservedPairNow { get; set; }
+
 	// The protocol instance Crestron Home currently holds a live reference to
 	// (i.e. the one created by the most recent Initialize()). Crestron Home
 	// can reinitialize the driver again while an older instance's

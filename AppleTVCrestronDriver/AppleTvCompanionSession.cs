@@ -69,16 +69,12 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		 Action<string> log)
 		{
 		var client = new TcpClient ();
-		#if DEBUG
 		log?.Invoke ("Connecting TCP socket.");
-		#endif
 		using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
 			{
 			await client.ConnectAsync (host, port).ConfigureAwait (false);
 			}
-		#if DEBUG
 		log?.Invoke ("TCP socket connected; starting pair verification.");
-		#endif
 
 		var connection = new CompanionConnection ();
 		var protocol = new CompanionProtocol (connection, new SrpAuthHandler ());
@@ -89,9 +85,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		try
 			{
 			await session.PairVerifyAsync (credentials, cancellationToken).ConfigureAwait (false);
-			#if DEBUG
 			log?.Invoke ("Pair verification succeeded; starting Companion API session.");
-			#endif
 			session.Api = new CompanionApi (
 				 protocol,
 				 credentials,
@@ -104,9 +98,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			// cannot be missed.
 			session.Api.SystemStatusChanged += session.HandleSystemStatusChanged;
 			await session.Api.ConnectAsync ().ConfigureAwait (false);
-			#if DEBUG
 			log?.Invoke ("Companion API session connected.");
-			#endif
 			#if DEBUG
 			session.Api.MediaControlCapabilitiesChanged += session.HandleMediaControlCapabilitiesChanged;
 			#endif
@@ -115,11 +107,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			}
 		catch (Exception exception)
 			{
-			#if DEBUG
 			log?.Invoke ($"Companion connection failed: {exception.GetType ().FullName}: {exception.Message}");
-			#else
-			_ = exception;
-			#endif
 			session.Dispose ();
 			throw;
 			}
@@ -207,11 +195,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			{
 			if (!_disposed)
 				{
-				#if DEBUG
 				_log?.Invoke ($"Companion read loop failed: {exception.GetType ().FullName}: {exception.Message}");
-				#else
-				_ = exception;
-				#endif
 				_connection.Fault (null);
 				SetConnectionState (false);
 				}
@@ -258,9 +242,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 	private void HandleSystemStatusChanged (object sender, EventArgs e)
 		{
 		bool isOn = Api.CurrentSystemStatus != SystemStatus.Asleep && Api.CurrentSystemStatus != SystemStatus.Unknown;
-		#if DEBUG
 		_log?.Invoke ($"Apple TV system status changed to {Api.CurrentSystemStatus} (power {(isOn ? "on" : "off")}).");
-		#endif
 		PowerStateChanged?.Invoke (isOn);
 		}
 

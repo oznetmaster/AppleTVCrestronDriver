@@ -2,7 +2,6 @@
 // Licensed under the MIT License with Commons Clause. See LICENSE file in the project root for full license information.
 
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -150,6 +149,18 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		{
 		try
 			{
+			// Crestron Home applies the configured PairingPin value (including
+			// a leftover value from a previous pairing) on every Initialize,
+			// not just when the user actually enters a new PIN - including the
+			// very first Initialize after a reload/reboot, when there is no
+			// prior in-memory value to compare against. There is nothing to do
+			// unless a pairing handshake is actually in progress, so check
+			// that first and short-circuit before logging or doing any work.
+			if (AppleTvPairingSessionState.Instance.Pairing is null)
+				{
+				return;
+				}
+
 			LogDiagnostic ($"Pairing PIN received ({pairingPin.Length} digits).");
 			await CompletePairingAsync (protocol, pairingPin).ConfigureAwait (false);
 			}
@@ -189,6 +200,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// pairing/connection sequence in the logs. Waiting here first ensures
 		// this instance observes the just-saved paired credentials and is the
 		// one that actually connects.
+		//
+		// This only briefly touches session.Gate rather than holding it for
+		// this method's entire duration (including its own network I/O):
+		// holding it throughout would serialize this method's discovery scan
+		// and connect attempt against every other instance's pairing/connect
+		// work for the whole process lifetime, and if any one of those calls
+		// never released the gate (e.g. is genuinely stuck on slow/hung
+		// network I/O), every future Initialize would then deadlock waiting
+		// for it - permanently taking the device offline. The actual race
+		// this exists to prevent (a stale saved-endpoint connect attempt
+		// clobbering a concurrently-completing pairing handshake) is instead
+		// avoided below by checking whether a pairing session is active
+		// before attempting the saved-endpoint connect.
 		await session.Gate.WaitAsync ().ConfigureAwait (false);
 		_ = session.Gate.Release ();
 
@@ -312,6 +336,44 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					return;
 					}
 
+				// The in-memory 'device' already holds whatever credentials were most
+				// recently loaded/saved, so validate them directly at the freshly
+				// discovered address first - there is nothing on disk that isn't
+				// already reflected here. Only if that fails do we reload from disk
+				// below, in case a concurrent Pair Now/PairingPin completion (on this
+				// or a recreated instance) saved newer credentials while the discovery
+				// scan above was in flight.
+				try
+					{
+					await ConnectCompanionAsync (protocol, device, discovered.Address.ToString (), discovered.Port).ConfigureAwait (false);
+					LogDiagnostic ($"Connected to '{device.Name}' using its current stored credentials.");
+					return;
+					}
+				catch (Exception exception)
+					{
+					LogDiagnostic ($"Current stored credentials for '{device.Name}' failed to connect at the discovered endpoint; checking for a newer pairing before continuing recovery.");
+					LogException (exception);
+					}
+
+				AppleTvStoredDevice currentDevice = AppleTvStoredDevice.LoadForName (device.Name);
+				if (currentDevice is not null && currentDevice.IsPaired)
+					{
+					try
+						{
+						await ConnectCompanionAsync (protocol, currentDevice, currentDevice.Address, currentDevice.Port).ConfigureAwait (false);
+						SaveStoredDevice (currentDevice);
+						LogDiagnostic ($"Connected to '{currentDevice.Name}' using its current stored credentials.");
+						return;
+						}
+					catch (Exception exception)
+						{
+						LogDiagnostic ($"Reloaded stored credentials for '{currentDevice.Name}' also failed to connect; continuing endpoint recovery.");
+						LogException (exception);
+						}
+
+					device = currentDevice;
+					}
+
 				string discoveredAddress = discovered.Address.ToString ();
 				bool endpointChanged = !string.Equals (device.Address, discoveredAddress, StringComparison.Ordinal)
 					|| device.Port != discovered.Port
@@ -387,9 +449,17 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		try
 			{
 			AppleTvStoredDevice device = LoadStoredDevice ();
-			if (device is null || device.IsPaired || string.IsNullOrWhiteSpace (device.Address))
+
+			// Pair Now is an explicit user request to (re-)pair, so a stored
+			// record already marked IsPaired must not block it: pair
+			// verification against those credentials can fail permanently
+			// (e.g. the user removed this driver from the Apple TV's paired
+			// accessories), in which case IsPaired stays true forever and the
+			// only way to recover is to let the user re-pair. Only bail out
+			// when there is no address at all to pair against.
+			if (device is null || string.IsNullOrWhiteSpace (device.Address))
 				{
-				LogDiagnostic ("Pair Now was requested, but no discovered (unpaired) Apple TV identity is available.");
+				LogDiagnostic ("Pair Now was requested, but no discovered Apple TV identity is available.");
 				return;
 				}
 
@@ -439,9 +509,13 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		await session.Gate.WaitAsync ().ConfigureAwait (false);
 		try
 			{
+			// HandlePairingPinChangedAsync already filters out the common case
+			// of a replayed PIN when no pairing is in progress, so reaching
+			// here with no active session means one ended (completed, failed,
+			// or was cleared) while this call was waiting on the gate above.
 			if (session.Pairing is null)
 				{
-				LogDiagnostic ("Pairing PIN was ignored because pairing is not active.");
+				LogDiagnostic ("Pairing PIN was ignored because pairing is no longer active.");
 				return;
 				}
 
@@ -557,25 +631,28 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		_storedDevice = device;
 		}
 
-	private void LogException (Exception exception)
-		{
-		// Exceptions must be visible in both Debug and Release builds, so this
-		// logs directly rather than going through the DEBUG-only LogDiagnostic.
-		string diagnostic = $"[AppleTV] {exception.GetType ().FullName}: {exception.Message}";
-		ErrorLog.Error (diagnostic);
-		}
+	private void LogException (Exception exception) =>
+		LogDiagnostic ($"{exception.GetType ().FullName}: {exception.Message}");
 
-	[Conditional ("DEBUG")]
 	private void LogDiagnostic (string message)
 		{
-		// Write straight to the processor console/error log instead of going
-		// through the RAD Log() hook, which is routed through Crestron Home
-		// and can be filtered/delayed/interleaved with its own logging.
-		// EnableLogging is not set until after the driver is constructed and
-		// Initialize() runs, so gating on it here would silently drop every
-		// diagnostic emitted during construction/load and the initial
-		// SetUserAttribute calls that follow.
-		string diagnostic = $"[AppleTV] {message}";
-		ErrorLog.Notice (diagnostic);
+		// Routed through the base class's own Log() (gated on EnableLogging,
+		// as every other RAD driver does), so diagnostics are visible in the
+		// field via Crestron Home's logging toggle rather than only in Debug
+		// builds. EnableLogging is not set until after the driver is
+		// constructed and Initialize() runs, so diagnostics emitted during
+		// construction/load and the initial SetUserAttribute calls are
+		// unavoidably dropped; that is an acceptable startup-only gap.
+		if (EnableLogging)
+			{
+			Log ($"[AppleTV] {message}");
+			}
+
+		#if DEBUG
+		// Also write straight to the processor console/error log in Debug
+		// builds, since it is not routed through Crestron Home and is not
+		// subject to EnableLogging, filtering, or delay/interleaving.
+		ErrorLog.Notice ($"[AppleTV] {message}");
+		#endif
 		}
 	}
