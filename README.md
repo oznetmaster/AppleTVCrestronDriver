@@ -100,6 +100,31 @@ Typical release flow:
 
 ---
 
+## Testing
+
+`AppleTVCrestronDriver.Tests` is an MSTest unit/integration test project covering the driver logic that
+does not require a live Crestron control system or a physical Apple TV (pairing state helpers, stored
+credential persistence, and the Companion Link pairing handshake). It is **not** a publishable artifact
+(`IsPackable`/`IsPublishable` are both `false`) and is not part of the release `.pkg`/NuGet package built
+above -- it exists purely to validate the driver source in this repository during development.
+
+### Running the tests
+
+```powershell
+dotnet test AppleTVCrestronDriver.slnx
+```
+
+### Dependency on AppleTVControlLibrary source
+
+The test project references the in-repo `AppleTVControlLibrary` [FakeDevice test helpers](https://github.com/oznetmaster/AppleTVControlLibrary/tree/master/tests/AppleTV.Companion.FakeDevice)
+(`FakeCompanionDevice`/`FakeCompanionTcpHost`) to drive real pairing-handshake integration tests without
+sockets to actual hardware. This requires the [AppleTVControlLibrary](https://github.com/oznetmaster/AppleTVControlLibrary)
+repository to be cloned as a sibling directory of this repository (i.e. `../AppleTVControlLibrary` relative
+to this repository's root), matching the relative paths already used by `AppleTVCrestronDriver.slnx` for
+the non-built `AppleTV.Companion`/`AppleTV.Companion.Discovery` source projects.
+
+---
+
 ## Repository Notes
 
 - XML documentation generation is enabled in the project build

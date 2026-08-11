@@ -106,7 +106,7 @@ public sealed class AppleTvStoredDeviceTests
 			ClientId = clientId,
 			};
 
-		AppleTvControlLibrary.Auth.HapCredentials credentials = device.ToCredentials ();
+		var credentials = device.ToCredentials ();
 
 		CollectionAssert.AreEqual (ltpk, credentials.Ltpk);
 		CollectionAssert.AreEqual (ltsk, credentials.Ltsk);

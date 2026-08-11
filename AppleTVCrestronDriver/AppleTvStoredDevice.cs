@@ -39,21 +39,21 @@ internal sealed class AppleTvStoredDevice
 
 	internal HapCredentials ToCredentials () => new (Ltpk, Ltsk, AtvId, ClientId);
 
-	internal static AppleTvStoredDevice LoadForName (string name)
+	internal static AppleTvStoredDevice LoadForName (string name) => LoadForName (name, new CrestronCredentialFileStore ());
+
+	internal static AppleTvStoredDevice LoadForName (string name, ICredentialFileStore store)
 		{
 		if (string.IsNullOrWhiteSpace (name))
 			{
 			return null;
 			}
 
-		string credentialDirectory = SharedStorage.GetCredentialDirectory ();
-
-		foreach (string path in Directory.EnumerateFiles (credentialDirectory, "*.json"))
+		foreach (string entryId in store.EnumerateEntries ())
 			{
 			try
 				{
 				StoredDeviceFile deviceFile;
-				using (FileStream stream = File.OpenRead (path))
+				using (Stream stream = store.OpenRead (entryId))
 					{
 					deviceFile = (StoredDeviceFile)new DataContractJsonSerializer (typeof (StoredDeviceFile)).ReadObject (stream);
 					}
@@ -73,7 +73,9 @@ internal sealed class AppleTvStoredDevice
 		return null;
 		}
 
-	internal static void Save (AppleTvStoredDevice device)
+	internal static void Save (AppleTvStoredDevice device) => Save (device, new CrestronCredentialFileStore ());
+
+	internal static void Save (AppleTvStoredDevice device, ICredentialFileStore store)
 		{
 		if (device is null)
 			{
@@ -85,8 +87,8 @@ internal sealed class AppleTvStoredDevice
 			throw new ArgumentException ("An Apple TV stable identifier is required.", nameof (device));
 			}
 
-		string path = Path.Combine (SharedStorage.GetCredentialDirectory (), GetPathKey (device.UniqueId) + ".json");
-		using FileStream stream = File.Create (path);
+		string entryId = GetPathKey (device.UniqueId) + ".json";
+		using Stream stream = store.CreateWrite (entryId);
 		new DataContractJsonSerializer (typeof (StoredDeviceFile)).WriteObject (stream, StoredDeviceFile.FromStoredDevice (device));
 		}
 

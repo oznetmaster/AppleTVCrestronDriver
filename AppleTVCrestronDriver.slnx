@@ -8,5 +8,9 @@
   <Project Path="../AppleTVControlLibrary/src/AppleTV.Companion/AppleTV.Companion.csproj">
     <Build Project="false" />
   </Project>
+  <Project Path="../AppleTVControlLibrary/tests/AppleTV.Companion.FakeDevice/AppleTV.Companion.FakeDevice.csproj">
+    <Build Project="false" />
+  </Project>
+  <Project Path="AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj" />
   <Project Path="AppleTVCrestronDriver/AppleTVCrestronDriver.csproj" />
 </Solution>

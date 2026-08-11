@@ -7,6 +7,16 @@
 		<IsPackable>false</IsPackable>
 		<IsPublishable>false</IsPublishable>
 		<RootNamespace>AppleTV.CrestronDriver.Tests</RootNamespace>
+
+		<!--
+			AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary/AppleTVControlLibrary.Discovery
+			into its own output assembly after Build (see its MergeDependencies target), so this project's
+			ProjectReference below already sees types like HapCredentials as part of the driver assembly.
+			Without this, MSBuild also transitively flows the driver project's own PackageReference to the
+			AppleTVControlLibrary NuGet package into this project, so both the driver assembly and the
+			original library assembly define HapCredentials, and using it here becomes ambiguous (CS0433).
+		-->
+		<DisableTransitiveProjectReferences>true</DisableTransitiveProjectReferences>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -17,6 +27,17 @@
 
 	<ItemGroup>
 		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" />
+
+		<!--
+			AppleTVControlLibrary's own test suite ships a reusable in-memory fake Companion
+			Apple TV (FakeCompanionDevice/FakeCompanionOpackDevice/FakeCompanionTcpHost) that
+			can drive pairing/API integration tests without a socket or real device. Referencing
+			it here lets this project reuse those fakes instead of reimplementing them.
+			DisableTransitiveProjectReferences above keeps this project from also picking up
+			FakeDevice's own ProjectReference to AppleTV.Companion (source), which would
+			otherwise define HapCredentials a second time alongside the driver's IL-merged copy.
+		-->
+		<ProjectReference Include="..\..\AppleTVControlLibrary\tests\AppleTV.Companion.FakeDevice\AppleTV.Companion.FakeDevice.csproj" />
 	</ItemGroup>
 
 </Project>
