@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2] - 2026-08-11
+
+### Fixed
+
+- Changing `AppleTvName` could leave a stale, now-superseded driver instance's discovery/connect pass running concurrently with the new instance's own pass, occasionally producing redundant or overlapping status updates for what was a single user edit. The prior configure pass is now cancelled when the driver reinitializes for a name change.
+
+### Known Issues
+
+- Crestron Home's Configure Pro app can display stale/incorrect user attribute descriptions (e.g. Apple TV Name, Pair Now) after reopening the device configuration page, even though the driver has already sent the correct, current description. Using the Crestron Home Setup app instead shows the descriptions correctly and updates them immediately when values change. This appears to be a Configure Pro caching/refresh issue rather than a driver defect.
+
 ## [1.1.1] - 2026-08-10
 
 ### Fixed

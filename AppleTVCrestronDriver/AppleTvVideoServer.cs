@@ -3,6 +3,7 @@
 
 using System;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 using AppleTvControlLibrary.Discovery.Companion;
@@ -19,7 +20,7 @@ namespace AppleTV.CrestronDriver;
 public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISerial
 	{
 	private const string STORED_DEVICE_SETTING_KEY = "AppleTvStoredDevice";
-	private const string PAIRING_NOTICE_ATTRIBUTE_ID = "AppleTvPairingNotice";
+	private const string APPLE_TV_NAME_ATTRIBUTE_ID = "AppleTvName";
 	private const string PAIRING_PIN_ATTRIBUTE_ID = "PairingPin";
 	private const string PAIR_NOW_ATTRIBUTE_ID = "PairNow";
 
@@ -58,19 +59,54 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		protocol.AppleTvNameChanged += appleTvName => _ = HandleAppleTvNameChangedAsync (protocol, appleTvName);
 		protocol.PairingPinChanged += pairingPin => _ = HandlePairingPinChangedAsync (protocol, pairingPin);
 		protocol.PairNowRequested += () => _ = HandlePairNowRequestedAsync ();
+		protocol.PairNowTurnedOff += () => HandlePairNowTurnedOff (protocol);
 		protocol.StateChange += StateChange;
 		protocol.RxOut += SendRxOut;
-		protocol.Initialize (VideoServerData);
-		VideoServerProtocol = protocol;
 
 		// Record this as the instance Crestron Home currently holds a live
-		// reference to. Async pairing/connect work started by an older,
-		// now-superseded instance can still be running when this reinit
-		// happens (Crestron Home does not cancel it); that older work must
-		// redirect its eventual connected-state notification to whichever
-		// instance is current when it completes, not to itself, or the
-		// device is left showing offline despite a fully successful connect.
+		// reference to BEFORE calling protocol.Initialize below. Initialize
+		// replays every configured user attribute (AppleTvName, PairNow,
+		// PairingPin) through SetUserAttribute, which raises
+		// AppleTvNameChanged/PairNowRequested/PairingPinChanged synchronously.
+		// Those handlers are fire-and-forget async methods that await
+		// SemaphoreSlim.WaitAsync() - which completes synchronously whenever
+		// the semaphore is uncontested - so the entire discard/discover/
+		// status-setting chain (ConfigureAppleTvAsync and its SetXxxStatus
+		// calls, which route through CurrentDriverOrSelf) can run inline,
+		// synchronously, during this very call to protocol.Initialize.
+		// Assigning CurrentProtocol/CurrentDriver only after Initialize
+		// returned meant that inline chain used the previous, now-superseded
+		// instance: ModifyUserAttribute ran and logged successfully on it,
+		// but the resulting description update was invisible to Crestron
+		// Home, which only reflects updates raised by the instance it
+		// currently holds a live reference to. Async work (discovery scans,
+		// pairing handshakes) started by an older, now-superseded instance
+		// can still be running when this reinit happens (Crestron Home does
+		// not cancel it); that older work must redirect its eventual
+		// connected-state notification to whichever instance is current when
+		// it completes, not to itself, or the device is left showing offline
+		// despite a fully successful connect.
 		AppleTvPairingSessionState.Instance.CurrentProtocol = protocol;
+		AppleTvPairingSessionState.Instance.CurrentDriver = this;
+
+		// Cancel whatever ConfigureAppleTvAsync pass the previous, now-
+		// superseded instance may still have in flight. AppleTvName is
+		// RequiredForConnection: Before, so Crestron Home reinitializes the
+		// driver in direct response to the user editing it - but does not
+		// itself stop the old instance's in-flight discovery/connect work,
+		// which keeps running and eventually calls its own SetXxxStatus and
+		// ConnectCompanionAsync redundantly alongside the new instance's own
+		// replay-triggered pass for what is, from the user's perspective, a
+		// single edit. Cancelling the old pass here (and disposing its
+		// token source) means it observes the cancellation the next time it
+		// checks (see ConfigureAppleTvAsync) and quietly stops instead of
+		// racing the new instance to completion.
+		AppleTvPairingSessionState.Instance.ConfigureCancellation?.Cancel ();
+		AppleTvPairingSessionState.Instance.ConfigureCancellation?.Dispose ();
+		AppleTvPairingSessionState.Instance.ConfigureCancellation = new CancellationTokenSource ();
+
+		protocol.Initialize (VideoServerData);
+		VideoServerProtocol = protocol;
 
 		// If a PairingPin arrived on a now-stale instance (Crestron Home
 		// reinitialized again before that instance could complete pairing),
@@ -86,7 +122,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			_ = CompletePairingAsync (protocol, pendingPin);
 			}
 
-		// PairNow, AppleTvPairingNotice, and PairingPin are declared statically in the
+		// PairNow and PairingPin are declared statically in the
 		// driver's json manifest, so they always exist and are never added or removed at
 		// runtime. Any in-flight pairing session survives this reinitialization because
 		// it lives in the static AppleTvPairingSessionState singleton rather than on
@@ -194,9 +230,83 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		}
 
+	// Whether PairNow is currently known to be off. Crestron Home replays the
+	// last-known value of every persistent attribute (including PairNow) on
+	// every Initialize, so on the very first Initialize after a reload -
+	// before HasObservedPairNow has been set by the initial SetUserAttribute
+	// replay - the actual current value is not yet known here and must be
+	// treated conservatively (i.e. not assumed off), since a stuck True would
+	// otherwise be told the wrong turn-on-only instruction and never
+	// re-trigger a fresh edge.
+	private static bool IsPairNowKnownOff ()
+		{
+		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+		return session.HasObservedPairNow && !session.LastPairNowValue;
+		}
+
+	private static string DescribePairNowRetry (string action)
+		{
+		return IsPairNowKnownOff ()
+			? $"Turn this on to {action}."
+			: $"Turn this off and then on to {action}.";
+		}
+
+	// PairNow is a persistent toggle, so turning it back off (whether the user did
+	// so deliberately, or an in-flight pairing attempt was cancelled/abandoned by
+	// turning it off before a PIN was entered) is itself a state change worth
+	// reflecting in the description, rather than leaving whatever in-progress or
+	// failure text was showing beforehand.
+	private void HandlePairNowTurnedOff (AppleTvVideoServerProtocol protocol)
+		{
+		try
+			{
+			LogDiagnostic ("Pair Now was turned off.");
+			if (AppleTvPairingSessionState.Instance.Pairing is not null)
+				{
+				ClearPairing ();
+				}
+
+			AppleTvStoredDevice device = LoadStoredDevice ();
+			bool isPaired = device is not null && device.IsPaired;
+			SetPairNowStatus (isPaired
+				? "The Apple TV is already paired. Turn this on to re-pair."
+				: "Turn this on to pair.");
+
+			if (isPaired)
+				{
+				SetPairingPinStatus ("Pairing is complete; no code is currently needed.");
+				}
+			else
+				{
+				// PairingPin is itself persistent: a PIN entered for the
+				// abandoned attempt is still sitting in the configuration UI
+				// rather than clearing on its own, so say "new" to make clear
+				// a fresh code is expected even though the field still shows
+				// the old one.
+				bool hasPriorPin = !string.IsNullOrEmpty (protocol.PairingPin);
+				SetPairingPinStatus (hasPriorPin
+					? "Enter the new four-digit pairing code currently displayed on the Apple TV."
+					: "Enter the four-digit pairing code currently displayed on the Apple TV.");
+				}
+			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			}
+		}
+
 	private async Task ConfigureAppleTvAsync (AppleTvVideoServerProtocol protocol, string appleTvName)
 		{
 		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
+
+		// Captured once, at the start of this specific pass: identifies the
+		// CancellationTokenSource that was current (i.e. belongs to this
+		// pass's own driver instance) when this call began. Initialize()
+		// cancels and replaces session.ConfigureCancellation every time it
+		// runs, so a still-running older pass keeps observing its own,
+		// now-cancelled token even after a newer instance has replaced
+		// session.ConfigureCancellation with a fresh one for itself.
+		CancellationToken cancellationToken = session.ConfigureCancellation.Token;
 
 		// Crestron Home can recreate this driver instance again while an older
 		// instance's BeginPairingAsync/CompletePairingAsync (guarded by
@@ -230,6 +340,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		await session.ConfigureGate.WaitAsync ().ConfigureAwait (false);
 		try
 			{
+			// A newer instance may have already started (and even finished)
+			// its own pass by the time this pass gets its turn at
+			// ConfigureGate - e.g. this pass was started by the old
+			// instance's live SetUserAttribute callback, then Crestron Home
+			// reinitialized before this pass reached the gate. Continuing
+			// here would redundantly repeat discovery/connect and overwrite
+			// whatever status the current instance's own pass already set.
+			if (cancellationToken.IsCancellationRequested)
+				{
+				LogDiagnostic ("Skipping this pass because a newer driver instance has since taken over configuration.");
+				return;
+				}
+
 			AppleTvStoredDevice device = LoadStoredDevice ();
 
 			// If the stored identity - paired or only a discovery record - no longer
@@ -250,6 +373,17 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					protocol.SetCompanionConnectionState (false);
 					}
 
+				// Discarding device here only cleared the local variable, not the
+				// persisted settings value LoadStoredDevice() reads from. Crestron Home
+				// frequently reinitializes the driver again almost immediately after a
+				// name change (e.g. because PairNow/PairingPin are replayed alongside
+				// it), which starts a concurrent ConfigureAppleTvAsync/BeginPairingAsync
+				// pass that calls LoadStoredDevice() itself. Without persisting the
+				// discard here first, that reinit's LoadStoredDevice() still returns the
+				// stale record, reconnects using it, and overwrites the correct
+				// not-found/discovered status for the new name with the old device's
+				// paired status.
+				SaveStoredDevice (null);
 				device = null;
 				}
 
@@ -258,6 +392,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				if (string.IsNullOrWhiteSpace (appleTvName))
 					{
 					LogDiagnostic ("No Apple TV name is configured and device settings do not contain a discovered or paired identity.");
+					SetBlankNameStatus ();
 					return;
 					}
 
@@ -265,10 +400,16 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				if (device is not null)
 					{
 					SaveStoredDevice (device);
-					SetAppleTvNameStatus (device.IsPaired
-						? "Existing paired credentials were found for this Apple TV name."
-						: "A previously discovered identity was found for this Apple TV name.");
+					if (!device.IsPaired)
+						{
+						SetDiscoveredUnpairedStatus (device.Name);
+						}
 					LogDiagnostic ($"Initialized device settings from the shared record for '{device.Name}'.");
+					}
+				else
+					{
+					// No stored discovery/paired record for this name yet; the discovery scan
+					// below will run and set the appropriate status once it completes.
 					}
 				}
 
@@ -279,6 +420,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					LogDiagnostic ($"Attempting saved endpoint for '{device.Name}' at {device.Address}:{device.Port}.");
 					await ConnectCompanionAsync (protocol, device, device.Address, device.Port).ConfigureAwait (false);
 					LogDiagnostic ($"Connected to '{device.Name}' using its saved endpoint.");
+					SetPairedStatus (device.Name);
 					return;
 					}
 				catch (Exception exception)
@@ -300,6 +442,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			if (device is not null && !device.IsPaired)
 				{
 				LogDiagnostic ($"'{device.Name}' was already discovered and awaits Pair Now; skipping a redundant discovery scan.");
+				SetDiscoveredUnpairedStatus (device.Name);
 				return;
 				}
 
@@ -313,13 +456,24 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			if (device is null)
 				{
 				LogDiagnostic ($"Discovering '{appleTvName}' for up to five seconds.");
-				discovered = await MulticastCompanionDiscovery.DiscoveryAsync (appleTvName, TimeSpan.FromSeconds (5)).ConfigureAwait (false);
+				discovered = await MulticastCompanionDiscovery.DiscoveryAsync (appleTvName, TimeSpan.FromSeconds (5), cancellationToken).ConfigureAwait (false);
 				}
 			else
 				{
 				LogDiagnostic ("Discovering the known Apple TV by its saved identity for up to five seconds.");
-				discovered = (await new MulticastCompanionDiscovery ().ScanAsync (TimeSpan.FromSeconds (5)).ConfigureAwait (false))
+				discovered = (await new MulticastCompanionDiscovery ().ScanAsync (TimeSpan.FromSeconds (5), cancellationToken).ConfigureAwait (false))
 					.FirstOrDefault (result => string.Equals (result.UniqueId, device.UniqueId, StringComparison.Ordinal));
+				}
+
+			// A newer instance's own pass may have started and even completed
+			// while this discovery scan (up to five seconds) was running.
+			// Continuing to report a status or reconnect from here would
+			// clobber whatever the current instance's pass already
+			// determined and set.
+			if (cancellationToken.IsCancellationRequested)
+				{
+				LogDiagnostic ("Discarding this discovery result because a newer driver instance has since taken over configuration.");
+				return;
 				}
 
 			if (discovered is null || discovered.Address is null)
@@ -328,11 +482,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					? $"Discovery did not find '{appleTvName}'."
 					: "Discovery did not find the known Apple TV identity.");
 				LogException (new InvalidOperationException ("The required Apple TV was not found by Companion Link discovery."));
-				if (device is null)
-					{
-					SetAppleTvNameStatus ($"No Apple TV named '{appleTvName}' was found. Check the name and ensure the Apple TV is online on the local network.");
-					}
-
+				SetNotFoundStatus (appleTvName);
 				return;
 				}
 
@@ -358,6 +508,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					{
 					await ConnectCompanionAsync (protocol, device, discovered.Address.ToString (), discovered.Port).ConfigureAwait (false);
 					LogDiagnostic ($"Connected to '{device.Name}' using its current stored credentials.");
+					SetPairedStatus (device.Name);
 					return;
 					}
 				catch (Exception exception)
@@ -374,6 +525,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 						await ConnectCompanionAsync (protocol, currentDevice, currentDevice.Address, currentDevice.Port).ConfigureAwait (false);
 						SaveStoredDevice (currentDevice);
 						LogDiagnostic ($"Connected to '{currentDevice.Name}' using its current stored credentials.");
+						SetPairedStatus (currentDevice.Name);
 						return;
 						}
 					catch (Exception exception)
@@ -406,6 +558,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				SaveStoredDevice (device);
 				await ConnectCompanionAsync (protocol, device, device.Address, device.Port).ConfigureAwait (false);
 				LogDiagnostic ($"Connected to '{device.Name}' after endpoint recovery.");
+				SetPairedStatus (device.Name);
 				return;
 				}
 
@@ -435,13 +588,15 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				};
 			AppleTvStoredDevice.Save (discoveredDevice);
 			SaveStoredDevice (discoveredDevice);
-			SetAppleTvNameStatus ($"'{discovered.Name}' was found on the network. Press Pair Now to complete pairing.");
+			SetDiscoveredUnpairedStatus (discovered.Name);
 			LogDiagnostic ($"Discovered but unpaired identity persisted for '{discovered.Name}'; awaiting Pair Now.");
 			}
 		catch (Exception exception)
 			{
 			LogException (exception);
 			SetAppleTvNameStatus ($"The Apple TV name could not be validated: {exception.Message}");
+			SetPairNowStatus ("The Apple TV name could not be validated; pairing cannot start.");
+			SetPairingPinStatus ("The Apple TV name could not be validated; a pairing code cannot be entered.");
 			}
 		finally
 			{
@@ -489,12 +644,26 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			LogDiagnostic ($"Starting pairing for '{device.Name}'. Enter the PIN shown on the Apple TV.");
 			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
 			SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
+			SetPairNowStatus ("Pairing is now in progress. A pairing code is displayed on the Apple TV.");
+
+			// PairingPin is a persistent attribute: if a PIN was already entered
+			// for a previous pairing attempt, its value (and this description)
+			// otherwise stays exactly as it was left, which reads as though
+			// nothing changed. Telling the user to enter the "new" code makes it
+			// clear a fresh PIN is expected even though the field is not blank.
+			bool hasPriorPin = !string.IsNullOrEmpty (AppleTvPairingSessionState.Instance.CurrentProtocol?.PairingPin);
+			SetPairingPinStatus (hasPriorPin
+				? $"Enter the new four-digit pairing code currently displayed on '{device.Name}'."
+				: $"Enter the four-digit pairing code currently displayed on '{device.Name}'.");
 			LogDiagnostic ($"Pairing setup is active for '{device.Name}'.");
 			}
 		catch (Exception exception)
 			{
 			LogException (exception);
-			SetAppleTvNameStatus ($"Pairing could not be started: {exception.Message}");
+			SetAppleTvNameStatus (session.Target is not null
+				? $"'{session.Target.Name}' was found on the network but pairing could not be started: {exception.Message}"
+				: $"Pairing could not be started: {exception.Message}");
+			SetPairNowStatus ($"Pairing could not be started: {exception.Message} {DescribePairNowRetry ("try again")}");
 			}
 		finally
 			{
@@ -554,6 +723,9 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
 			ClearPairing ();
+			SetAppleTvNameStatus ($"'{device.Name}' is paired.");
+			SetPairNowStatus ($"'{device.Name}' is already paired. {DescribePairNowRetry ("re-pair")}");
+			SetPairingPinStatus ("Pairing is complete; no code is currently needed.");
 
 			// Crestron Home can reinitialize the driver again while the
 			// handshake above was in flight (it is the only actual await in
@@ -581,13 +753,16 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			ClearPairing ();
 			LogDiagnostic ($"Pairing failed for '{protocol.AppleTvName}'; showing Pair Now for retry.");
 			LogException (exception);
-			SetAppleTvNameStatus ($"Pairing failed: {exception.Message}");
+			SetAppleTvNameStatus ($"'{protocol.AppleTvName}' was found on the network but pairing failed: {exception.Message}");
+			SetPairNowStatus ($"Pairing failed: {exception.Message} {DescribePairNowRetry ("try again")}");
+			SetPairingPinStatus ("Enter the four-digit pairing code currently displayed on the Apple TV.");
 			}
 		finally
 			{
 			_ = session.Gate.Release ();
 			}
 		}
+
 
 	private async Task ConnectCompanionAsync (AppleTvVideoServerProtocol protocol, AppleTvStoredDevice device, string address, int port)
 		{
@@ -615,7 +790,83 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		session.Clear ();
 		}
 
-	private void SetAppleTvNameStatus (string description) => LogDiagnostic (description);
+	// ModifyUserAttribute (documented at
+	// https://sdkcon78221.crestron.com/sdk/Crestron_Certified_Drivers_SDK/Content/Topics/Driver-SDK-V1/Create-a-Driver/Create-the-Driver-Files/Dynamic-User-Attributes.htm)
+	// updates a user attribute's description in place and raises
+	// UserAttributesChanged so Crestron Home refreshes the label shown next to
+	// the AppleTvName field in the configuration UI, giving the user
+	// human-readable feedback on where pairing currently stands (discovered,
+	// pairing in progress, failed, etc.) without a separate status attribute.
+	// This only ever changes the AppleTvName attribute's description, never
+	// its value, so it does not raise AppleTvNameChanged/SetUserAttribute and
+	// cannot trigger a redundant driver reinitialization or ConfigureAppleTvAsync pass.
+	private void SetAppleTvNameStatus (string description)
+		{
+		LogDiagnostic (description);
+		CurrentDriverOrSelf.ModifyUserAttribute (APPLE_TV_NAME_ATTRIBUTE_ID, description);
+		}
+
+	// The three attributes describe a single, shared pairing state, so whenever one
+	// changes because of what ConfigureAppleTvAsync just found (paired/discovered/not
+	// found/blank), all three must be updated together - otherwise a stale PairNow or
+	// PairingPin description (e.g. still saying "already paired") is left behind after
+	// the Apple TV name is changed to something that no longer resolves, or is changed
+	// to a name that is on the network but not yet paired, or on a reload where the
+	// configured name was already invalid/unpaired before this driver instance existed.
+	private void SetPairedStatus (string name)
+		{
+		SetAppleTvNameStatus ($"'{name}' was found on the network and is paired.");
+		SetPairNowStatus ($"'{name}' is already paired. {DescribePairNowRetry ("re-pair")}");
+		SetPairingPinStatus ("Pairing is complete; no code is currently needed.");
+		}
+
+	private void SetDiscoveredUnpairedStatus (string name)
+		{
+		SetAppleTvNameStatus ($"'{name}' was found on the network. Press Pair Now to complete pairing.");
+		SetPairNowStatus ($"'{name}' was found on the network but is not yet paired. {DescribePairNowRetry ("start pairing")}");
+		SetPairingPinStatus ("Enter the four-digit pairing code currently displayed on the Apple TV once pairing has started.");
+		}
+
+	private void SetNotFoundStatus (string name)
+		{
+		SetAppleTvNameStatus ($"No Apple TV named '{name}' was found. Check the name and ensure the Apple TV is online on the local network.");
+		SetPairNowStatus ("The Apple TV must be found on the network before pairing can start.");
+		SetPairingPinStatus ("A pairing code cannot be entered until the Apple TV is found on the network.");
+		}
+
+	private void SetBlankNameStatus ()
+		{
+		SetAppleTvNameStatus ("Enter the name of the Apple TV to pair with.");
+		SetPairNowStatus ("Enter the Apple TV name above before pairing.");
+		SetPairingPinStatus ("Enter the Apple TV name above before entering a pairing code.");
+		}
+
+	// Reflects current pairing state into the PairNow and PairingPin
+	// attributes' descriptions, the same way SetAppleTvNameStatus does for
+	// AppleTvName, so the whole pairing form (not just the name field) shows
+	// what is actually happening instead of always displaying its static,
+	// generic manifest text.
+	private void SetPairNowStatus (string description)
+		{
+		LogDiagnostic (description);
+		CurrentDriverOrSelf.ModifyUserAttribute (PAIR_NOW_ATTRIBUTE_ID, description);
+		}
+
+	private void SetPairingPinStatus (string description)
+		{
+		LogDiagnostic (description);
+		CurrentDriverOrSelf.ModifyUserAttribute (PAIRING_PIN_ATTRIBUTE_ID, description);
+		}
+
+	// ModifyUserAttribute is an instance method: calling it on a driver
+	// instance Crestron Home has already superseded (via a reinit that
+	// happened while this instance's own async discovery/pairing work was
+	// still running) executes and logs successfully, but the resulting
+	// description update is invisible to Crestron Home, which only reflects
+	// updates raised by whichever instance it currently holds a live
+	// reference to. Falling back to 'this' keeps this safe to call even
+	// before Initialize() has run (CurrentDriver not yet set).
+	private AppleTvVideoServer CurrentDriverOrSelf => AppleTvPairingSessionState.Instance.CurrentDriver ?? this;
 
 	private AppleTvStoredDevice LoadStoredDevice ()
 		{

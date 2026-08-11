@@ -105,6 +105,32 @@ internal sealed class AppleTvPairingSessionState
 	// chain started.
 	internal AppleTvVideoServerProtocol CurrentProtocol { get; set; }
 
+	// The AppleTvVideoServer driver instance Crestron Home currently holds a
+	// live reference to (mirrors CurrentProtocol, but for the driver object
+	// itself). ModifyUserAttribute is an instance method inherited from
+	// ABasicDriver: calling it on a superseded driver instance still runs
+	// and logs successfully, but Crestron Home only shows attribute
+	// description updates raised by the instance it currently has a live
+	// reference to. Async work (discovery scans, pairing handshakes)
+	// started by an older instance must therefore route its status updates
+	// through whichever driver instance is actually current, or those
+	// updates are silently invisible even though the log shows them firing.
+	internal AppleTvVideoServer CurrentDriver { get; set; }
+
+	// Cancels the previous driver instance's in-flight ConfigureAppleTvAsync
+	// pass (discovery scan and/or connect attempt) whenever Initialize() runs
+	// again. Crestron Home reinitializes the driver in response to a
+	// RequiredForConnection: Before attribute (AppleTvName) changing, but does
+	// not itself stop the old instance's async work; without this, both the
+	// old instance's pass (started by the live SetUserAttribute callback) and
+	// the new instance's replay-triggered pass run concurrently to
+	// completion, each independently discovering/connecting/reporting status
+	// for what is - from the user's perspective - a single edit. This is
+	// static, like the other session state, because the old instance itself
+	// is about to be discarded and has no opportunity to cancel its own
+	// pending work once Crestron Home has moved on to the new instance.
+	internal CancellationTokenSource ConfigureCancellation { get; set; }
+
 	// A PairingPin that arrived while the protocol instance handling it was
 	// (or turned out to be) stale - i.e. no longer ReferenceEquals to
 	// CurrentProtocol - is never completed on that stale instance. Instead

@@ -60,6 +60,8 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	internal event Action PairNowRequested;
 
+	internal event Action PairNowTurnedOff;
+
 	internal AppleTvVideoServerProtocol (ISerialTransport transportDriver, byte id)
 		 : base (transportDriver, id)
 		{
@@ -131,6 +133,10 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			if (attributeValue && !session.LastPairNowValue && session.HasObservedPairNow)
 				{
 				PairNowRequested?.Invoke ();
+				}
+			else if (!attributeValue && session.LastPairNowValue)
+				{
+				PairNowTurnedOff?.Invoke ();
 				}
 
 			session.LastPairNowValue = attributeValue;

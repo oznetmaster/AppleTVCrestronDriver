@@ -40,6 +40,10 @@ Once paired, the driver reconnects automatically on subsequent processor reboots
 
 > **Video routing reminder:** This driver only handles Companion Link control (pairing, remote input, and power/connection status) — it does not perform any HDMI switching or display control. After adding the driver, make sure you also configure the Apple TV's video routing to a display or switcher device (for example, an HDMI input assignment on a matrix switcher, or a display's source binding) in Crestron Home so that selecting the Apple TV actually switches the display to the correct input.
 
+### Known Issues
+
+- **Configure Pro shows stale attribute descriptions.** The driver updates the Apple TV Name, Pair Now, and Pairing PIN descriptions live to reflect current pairing/connection status. The Crestron Home **Setup** app reflects these updates correctly and immediately. The **Configure Pro** app, however, can display an outdated or default description after reopening a device's configuration page, even though the driver already sent the correct, current description. This appears to be a Configure Pro caching/refresh issue rather than a driver defect; use the Setup app if you need to confirm the current pairing status text.
+
 ### Installation
 
 The best way to download and install this driver on a Crestron Home system is to use the [Crestron Home Driver Feed Installer](https://github.com/oznetmaster/Crestron-Home-Driver-Feed-Installer) repository and application.
