@@ -168,7 +168,7 @@ jobs:
             }
 
             $extensionManifest = Get-Content $extensionManifestPath -Raw | ConvertFrom-Json
-            $extensionDriverVersion = $extensionManifest.CrestronSerialDeviceApi.GeneralInformation.DriverVersion
+            $extensionDriverVersion = $extensionManifest.GeneralInformation.DriverVersion
             if ([string]::IsNullOrWhiteSpace($extensionDriverVersion)) {
               throw 'DriverVersion is missing from the extension driver manifest.'
             }
