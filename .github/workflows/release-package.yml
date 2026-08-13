@@ -22,6 +22,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Check out AppleTVControlLibrary
+        uses: actions/checkout@v4
+        with:
+          repository: oznetmaster/AppleTVControlLibrary
+          path: ../AppleTVControlLibrary
+
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
         with:
