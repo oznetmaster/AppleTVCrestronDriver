@@ -49,6 +49,11 @@ Desktop.ini
 _diag*
 _schema.xsd
 
+## Local machine-specific build settings and credentials (SDK paths, Crestron
+## Home deploy IP/FTP/SFTP credentials); these are per-developer and must
+## never be committed for either driver project
+*.Local.targets
+
 ## Diagnostic/exploratory scaffolding projects and scripts (not part of the
 ## shipped driver; used only for local investigation/troubleshooting)
 AppleTVCrestronPlatformProof/

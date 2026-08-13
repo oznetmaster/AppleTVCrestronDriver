@@ -124,7 +124,7 @@ public sealed class AppleTvStoredDeviceStorageTests
 		{
 		FakeCredentialFileStore store = new ();
 
-		_ = Assert.ThrowsException<System.ArgumentNullException> (() => AppleTvStoredDevice.Save (null, store));
+		_ = Assert.ThrowsExactly<System.ArgumentNullException> (() => AppleTvStoredDevice.Save (null, store));
 		}
 
 	[TestMethod]
@@ -133,6 +133,6 @@ public sealed class AppleTvStoredDeviceStorageTests
 		FakeCredentialFileStore store = new ();
 		AppleTvStoredDevice device = new () { Name = "Living Room" };
 
-		_ = Assert.ThrowsException<System.ArgumentException> (() => AppleTvStoredDevice.Save (device, store));
+		_ = Assert.ThrowsExactly<System.ArgumentException> (() => AppleTvStoredDevice.Save (device, store));
 		}
 	}

@@ -1,40 +1,30 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
 		<OutputType>Library</OutputType>
-		<AssemblyName>AppleTVCrestronCloudDriver</AssemblyName>
-		<RootNamespace>AppleTV.CrestronDriver</RootNamespace>
+		<AssemblyName>AppleTVCrestronExtensionDriver</AssemblyName>
+		<RootNamespace>AppleTV.CrestronDriver.Extension</RootNamespace>
 		<LangVersion>latest</LangVersion>
-		<AssemblyTitle>AppleTVCrestronDriver</AssemblyTitle>
-		<AssemblyDescription></AssemblyDescription>
-		<AssemblyConfiguration></AssemblyConfiguration>
-		<AssemblyCompany></AssemblyCompany>
-		<AssemblyProduct>AppleTVCrestronDriver</AssemblyProduct>
-		<AssemblyCopyright>Copyright © 2026</AssemblyCopyright>
-		<AssemblyTrademark></AssemblyTrademark>
-		<AssemblyCulture></AssemblyCulture>
-		<AssemblyVersion>1.3.0.0</AssemblyVersion>
-		<FileVersion>1.3.0.0</FileVersion>
-		<ComVisible>false</ComVisible>
+		<GenerateAssemblyInfo>false</GenerateAssemblyInfo>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
-		<NoWarn>$(NoWarn);ILLink1005</NoWarn>
+		<NoWarn>$(NoWarn);ILLink1005;CS1591</NoWarn>
 		<Nullable>disable</Nullable>
 		<IsPackable>true</IsPackable>
 		<IncludeBuildOutput>false</IncludeBuildOutput>
 		<SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
 		<PackageType>CrestronHomeDriver</PackageType>
-		<PackageId>CrestronHomeDriver.Apple.AppleTV</PackageId>
+		<PackageId>CrestronHomeDriver.Apple.AppleTVExtension</PackageId>
 		<Authors>Neil Colvin</Authors>
 		<Company>Neil Colvin</Company>
-		<Description>Crestron Home RAD Driver for AppleTV.</Description>
+		<Description>Crestron Home Entity V2 Extension Driver for Apple TV app selection and remote control.</Description>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseFile>LICENSE</PackageLicenseFile>
 		<RepositoryUrl>https://github.com/oznetmaster/AppleTVCrestronDriver</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PublishRepositoryUrl>true</PublishRepositoryUrl>
 		<PackageProjectUrl>https://github.com/oznetmaster/AppleTVCrestronDriver</PackageProjectUrl>
-		<PackageTags>crestron;crestron-home;driver;pkg;apple;appletv;smarthome</PackageTags>
+		<PackageTags>crestron;crestron-home;driver;pkg;apple;appletv;extension;smarthome</PackageTags>
 		<PackageDriverPkgPath Condition="'$(PackageDriverPkgPath)' == ''"></PackageDriverPkgPath>
 		<PackageDriverManifestPath Condition="'$(PackageDriverManifestPath)' == ''"></PackageDriverManifestPath>
 		<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Debug'">true</TreatWarningsAsErrors>
@@ -49,16 +39,12 @@
 
 	<ItemGroup>
 		<AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
-			<_Parameter1>bc188e51-ede8-4dec-9861-fc7ff4233d37</_Parameter1>
-		</AssemblyAttribute>
-		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
-			<_Parameter1>AppleTVCrestronDriver.Tests</_Parameter1>
+			<_Parameter1>9C1B9F55-4C2E-4B3A-9F7E-3E5C2F6C9E10</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="AppleTVControlLibrary" Version="1.1.4" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="1.1.4" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
@@ -67,26 +53,49 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 	</ItemGroup>
+
+	<!-- Linked (not referenced via ProjectReference) so this driver can reuse the shared credential-file
+		  lookup logic (AppleTvStoredDevice/ICredentialFileStore/CrestronCredentialFileStore/SharedStorage) -
+		  used only to resolve the Apple TV Companion Link video server driver's stored UniqueId for a given
+		  Apple TV name, never to read or reuse its pairing credentials - plus the bridge client/port/protocol
+		  helpers (AppleTvBridgeClient/AppleTvBridgePort/AppleTvBridgeProtocol) that let this driver talk to
+		  that video server driver's loopback bridge server. A ProjectReference was deliberately avoided:
+		  AppleTVCrestronDriver.csproj's build output is ILRepack-merged with AppleTvControlLibrary as a
+		  post-build step, so referencing that project directly would pull in a second, separately-merged copy
+		  of AppleTvControlLibrary's public types (e.g. HidCommand, MediaControlCommand) alongside this
+		  project's own direct PackageReference to AppleTvControlLibrary, causing CS0433 duplicate-type errors.
+		  Linking the source files instead compiles them once, directly against this project's own
+		  AppleTvControlLibrary reference. This driver no longer owns any live Companion Link session/pairing
+		  of its own - AppleTvCompanionSession/AppleTvCompanionPairing are intentionally not linked here. --> 
 	<ItemGroup>
-		<EmbeddedResource Include="AppleTVCrestronDriver.json" />
+		<Compile Include="..\AppleTVCrestronDriver\SharedStorage.cs" Link="Shared\SharedStorage.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\ICredentialFileStore.cs" Link="Shared\ICredentialFileStore.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\CrestronCredentialFileStore.cs" Link="Shared\CrestronCredentialFileStore.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\AppleTvStoredDevice.cs" Link="Shared\AppleTvStoredDevice.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\AppleTvBridgeProtocol.cs" Link="Shared\AppleTvBridgeProtocol.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\AppleTvBridgePort.cs" Link="Shared\AppleTvBridgePort.cs" />
+		<Compile Include="..\AppleTVCrestronDriver\AppleTvBridgeClient.cs" Link="Shared\AppleTvBridgeClient.cs" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Include="..\README.md" Link="README.md" Pack="true" PackagePath="\" Visible="false" />
+		<EmbeddedResource Include="AppleTVCrestronExtensionDriver.json" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="README.md" Pack="true" PackagePath="\" Visible="false" />
+		<None Include="CHANGELOG.md" />
 		<None Include="..\LICENSE" Link="LICENSE" Pack="true" PackagePath="\" Visible="false" />
 		<None Include="$(PackageDriverPkgPath)" Pack="true" PackagePath="\" Visible="false" Condition="'$(PackageDriverPkgPath)' != ''" />
 		<None Include="$(PackageDriverManifestPath)" Pack="true" PackagePath="\" Visible="false" Condition="'$(PackageDriverManifestPath)' != ''" />
+		<None Include="IncludeInPkg\UiDefinitions\UiDefinition.xml" />
+		<None Include="IncludeInPkg\Translations\en-US.json" />
 		<None Include="BumpDriverVersion.ps1" />
 		<None Include="Deploy.ps1" />
 		<None Include="ILRepackMerge.ps1" />
 		<None Include="PatchMergedAssembly.ps1" />
 		<None Include="FixPkgPathSeparators.ps1" />
-		<None Include="AppleTVCrestronDriver.csproj.user" />
-		<None Include="AppleTVCrestronDriver.Local.targets" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="Properties\" />
+		<None Include="AppleTVCrestronExtensionDriver.csproj.user" Condition="Exists('AppleTVCrestronExtensionDriver.csproj.user')" />
+		<None Include="AppleTVCrestronExtensionDriver.Local.targets" Condition="Exists('AppleTVCrestronExtensionDriver.Local.targets')" />
 	</ItemGroup>
 
 	<PropertyGroup>
@@ -95,19 +104,18 @@
 		<LocalNetFxRuntimeDir Condition="'$(LocalNetFxRuntimeDir)' == ''">$(NETFX_RUNTIME_DIR)</LocalNetFxRuntimeDir>
 		<ManifestUtilExe Condition="'$(ManifestUtilExe)' == ''">ManifestUtil.exe</ManifestUtilExe>
 		<MergeDependenciesContinueOnError Condition="'$(MergeDependenciesContinueOnError)' == ''">true</MergeDependenciesContinueOnError>
-		<PackageDriverContinueOnError Condition="'$(PackageDriverContinueOnError)' == ''">false</PackageDriverContinueOnError>
-		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">false</PackageDriverIgnoreExitCode>
+		<PackageDriverContinueOnError Condition="'$(PackageDriverContinueOnError)' == ''">true</PackageDriverContinueOnError>
+		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">true</PackageDriverIgnoreExitCode>
 	</PropertyGroup>
 
 	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1')">
-		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronExtensionDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
 	</Target>
 
 	<Target Name="MergeDependencies" AfterTargets="Build">
 		<ItemGroup>
 			<MergeInputs Include="$(TargetPath)" />
 			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.dll" />
-			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.Discovery.dll" />
 			<MergeInputs Include="$(TargetDir)BouncyCastle.Cryptography.dll" />
 			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" />
 			<MergeInputs Include="$(TargetDir)plist-cil.dll" />
@@ -157,6 +165,6 @@
 		<Error Condition="!Exists('$(PackageDriverManifestPath)')" Text="PackageDriverManifestPath '$(PackageDriverManifestPath)' does not exist." />
 	</Target>
 
-	<Import Project="AppleTVCrestronDriver.Local.targets" Condition="Exists('AppleTVCrestronDriver.Local.targets')" />
+	<Import Project="AppleTVCrestronExtensionDriver.Local.targets" Condition="Exists('AppleTVCrestronExtensionDriver.Local.targets')" />
 
 </Project>

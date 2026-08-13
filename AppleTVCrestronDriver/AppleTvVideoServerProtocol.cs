@@ -40,6 +40,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		};
 	private readonly object _pressedArrowLock = new();
 	private readonly SemaphoreSlim _sendGate = new(1, 1);
+	private readonly AppleTvKeyboardBridge _keyboardBridge;
 
 	// Crestron Home re-applies the entire current configuration form (every
 	// attribute's last known value, not just the one the user changed) whenever
@@ -62,15 +63,32 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 
 	internal event Action PairNowTurnedOff;
 
+	// Raised when the currently active Companion Link session's connection
+	// drops (e.g. a faulted frame transport or a closed TCP socket) so the
+	// owning AppleTvVideoServer can attempt to reconnect. Companion Link has
+	// no driver-side keepalive/reconnect of its own: without this, a dropped
+	// session leaves the device offline in Crestron Home until the user
+	// manually reloads the driver.
+	internal event Action CompanionDisconnected;
+
+	// Raised for every tokenized event line (see AppleTvBridgeServer's protocol
+	// remarks) that should be relayed to any local bridge client (i.e. the
+	// extension driver) connected through the loopback bridge server, so it
+	// can mirror this driver's power/connection state instead of needing its
+	// own Companion Link connection.
+	internal event Action<string> BridgeEventRaised;
+
 	internal AppleTvVideoServerProtocol (ISerialTransport transportDriver, byte id)
 		 : base (transportDriver, id)
 		{
+		_keyboardBridge = new AppleTvKeyboardBridge (() => _session, LogDiagnostic);
+		_keyboardBridge.BridgeEventRaised += line => BridgeEventRaised?.Invoke (line);
 		}
 
 	internal async Task ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
 		{
 		_session?.Dispose ();
-		_session = await AppleTvCompanionSession.ConnectAsync (
+		AppleTvCompanionSession session = await AppleTvCompanionSession.ConnectAsync (
 			address,
 			port,
 			credentials,
@@ -78,15 +96,124 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			appleTvName,
 			CancellationToken.None,
 			message => LogDiagnostic (message)).ConfigureAwait (false);
-		_session.ConnectionStateChanged += SetCompanionConnectionState;
-		_session.PowerStateChanged += SetPowerState;
+		_session = session;
+
+		// Captures 'session' rather than reading _session at invocation time,
+		// so an event raised by a since-superseded session (e.g. its own
+		// Dispose() call from a later ConnectCompanionAsync replacing it) is
+		// recognized as stale and ignored instead of being misreported as the
+		// current connection dropping.
+		session.ConnectionStateChanged += connected => HandleSessionConnectionStateChanged (session, connected);
+		session.ConnectionClosed += exception => HandleSessionConnectionClosed (session, exception);
+		session.PowerStateChanged += SetPowerState;
+		if (session.Api is not null)
+			{
+			session.Api.SystemStatusChanged += (sender, e) => HandleSystemStatusChangedForBridge (session);
+			session.Api.MediaControlCapabilitiesChanged += (sender, e) => HandleVolumeSupportChangedForBridge (session);
+			session.Api.TextFocusStateChanged += (sender, e) => _ = _keyboardBridge.HandleTextFocusStateChangedAsync (session);
+			}
+
 		SetCompanionConnectionState (true);
 
 		// ConnectAsync's initial best-effort power snapshot does not raise
 		// SystemStatusChanged even when it successfully learns the state, so
 		// PowerIsOn would otherwise be left at its default until the next
 		// pushed transition. Seed it explicitly from what is already known.
-		SetPowerState (_session.IsPoweredOn);
+		SetPowerState (session.IsPoweredOn);
+		_ = RefreshStatusAsync ();
+		_ = RefreshAppsAsync ();
+		}
+
+	// Re-emits the currently known power/system-status/volume-support state to any connected
+	// bridge client on demand. Used to seed a bridge client (the extension driver) that connects
+	// after this driver's own Companion Link session already established its initial state, since
+	// the individual EVT: events above are only raised on a subsequent change, not retroactively
+	// on connect.
+	//
+	// CompanionApi.CurrentSystemStatus can still be stale/Unknown at this point: the initial
+	// best-effort FetchAttentionState snapshot taken during CompanionApi.ConnectAsync is wrapped
+	// in a try/catch there (some tvOS versions reply "No request handler"), so a caller landing
+	// here before the very first pushed SystemStatus/TVSystemStatus event would otherwise relay
+	// a stale Unknown. Re-fetching directly via FetchAttentionStateAsync sidesteps that instead
+	// of trusting the cached value.
+	internal async Task RefreshStatusAsync ()
+		{
+		AppleTvCompanionSession session = _session;
+		if (session?.Api is null)
+			{
+			return;
+			}
+
+		SetPowerState (session.IsPoweredOn);
+		try
+			{
+			SystemStatus currentStatus = await session.Api.FetchAttentionStateAsync ().ConfigureAwait (false);
+			if (ReferenceEquals (session, _session))
+				{
+				BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventSystemStatusPrefix + currentStatus);
+				}
+			}
+		catch (Exception exception)
+			{
+			LogDiagnostic ($"Failed to fetch the Apple TV's current system status for the bridge: {exception.Message}");
+			HandleSystemStatusChangedForBridge (session);
+			}
+
+		HandleVolumeSupportChangedForBridge (session);
+		}
+
+	// Relays the Apple TV's finer-grained system status (Awake/Screensaver/Idle/Asleep/Unknown -
+	// distinct from the on/off-only Power event) to any connected bridge client. Ignored if
+	// 'session' has since been superseded by a newer ConnectCompanionAsync call.
+	private void HandleSystemStatusChangedForBridge (AppleTvCompanionSession session)
+		{
+		if (!ReferenceEquals (session, _session) || session.Api is null)
+			{
+			return;
+			}
+
+		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventSystemStatusPrefix + session.Api.CurrentSystemStatus);
+		}
+
+	// Relays whether the currently playing app/Apple TV advertises volume control support to any
+	// connected bridge client, so it can show/hide volume controls exactly as this driver's own
+	// Crestron Home UI would. Ignored if 'session' has since been superseded.
+	private void HandleVolumeSupportChangedForBridge (AppleTvCompanionSession session)
+		{
+		if (!ReferenceEquals (session, _session) || session.Api is null)
+			{
+			return;
+			}
+
+		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventVolumeSupportedPrefix + (session.Api.IsVolumeControlSupported ? "1" : "0"));
+		}
+
+	private void HandleSessionConnectionStateChanged (AppleTvCompanionSession session, bool connected)
+		{
+		if (!ReferenceEquals (session, _session))
+			{
+			return;
+			}
+
+		SetCompanionConnectionState (connected);
+		}
+
+	// CompanionApi.ConnectionClosed (library v1.1.4+) is the authoritative
+	// signal that the session's connection is gone. AppleTvCompanionSession
+	// unsubscribes from it in Dispose() before closing its socket, so by the
+	// time this fires at all it is never our own intentional teardown (e.g.
+	// ConnectCompanionAsync replacing this session) - it is always a genuine
+	// external closure, whether a clean remote close (Exception == null) or
+	// an unexpected fault (Exception != null - a transport/decrypt/dispatch
+	// failure). Both cases warrant an automatic reconnect.
+	private void HandleSessionConnectionClosed (AppleTvCompanionSession session, Exception exception)
+		{
+		if (!ReferenceEquals (session, _session))
+			{
+			return;
+			}
+
+		CompanionDisconnected?.Invoke ();
 		}
 
 	// Reflects the Apple TV's pushed power state (asleep vs. awake/screensaver/idle)
@@ -100,6 +227,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		LogDiagnostic ($"Apple TV power state changed to {(isOn ? "on" : "off")}.");
 		PowerIsOn = isOn;
 		FireEvent (VideoServerStateObjects.Power, new Power { PowerIsOn = isOn });
+		BridgeEventRaised?.Invoke ($"EVT:POWER:{(isOn ? "On" : "Off")}");
 		}
 
 	internal string AppleTvName { get; private set; } = string.Empty;
@@ -193,6 +321,158 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			}
 
 		ConnectionChangedEvent (connected);
+		BridgeEventRaised?.Invoke (connected ? "EVT:CONNECTED" : "EVT:DISCONNECTED");
+		}
+
+	// Applies a tokenized command line (see AppleTvBridgeServer's protocol remarks) received
+	// from a local bridge client (the extension driver) to the live Companion Link session this
+	// driver instance owns, by routing it through the exact same public command methods
+	// Crestron Home itself calls (SendHid/SendMedia/PowerOn/PowerOff/arrow key handling), so the
+	// bridged extension driver and this driver's own Crestron Home UI behave identically.
+	internal void DispatchBridgeCommand (string commandLine)
+		{
+		string[] parts = commandLine.Split (':');
+		if (parts.Length < 2 || !string.Equals (parts[0], "CMD", StringComparison.OrdinalIgnoreCase))
+			{
+			return;
+			}
+
+		string kind = parts[1];
+		string argument = parts.Length > 2 ? parts[2] : null;
+
+		switch (kind.ToUpperInvariant ())
+			{
+			case "HID":
+				if (Enum.TryParse (argument, true, out HidCommand hidCommand))
+					{
+					SendHid (hidCommand);
+					}
+
+				break;
+			case "MEDIA":
+				if (Enum.TryParse (argument, true, out MediaControlCommand mediaCommand))
+					{
+					SendMedia (mediaCommand);
+					}
+
+				break;
+			case "ARROW":
+				if (Enum.TryParse (argument, true, out ArrowDirections arrowDirection))
+					{
+					ArrowKey (arrowDirection);
+					}
+
+				break;
+			case "ARROWDOWN":
+				if (Enum.TryParse (argument, true, out ArrowDirections pressDirection))
+					{
+					PressArrowKey (pressDirection);
+					}
+
+				break;
+			case "ARROWUP":
+				ReleaseArrowKey ();
+				break;
+			case "POWER":
+				if (string.Equals (argument, "On", StringComparison.OrdinalIgnoreCase))
+					{
+					PowerOn ();
+					}
+				else if (string.Equals (argument, "Off", StringComparison.OrdinalIgnoreCase))
+					{
+					PowerOff ();
+					}
+
+				break;
+			case "LAUNCH":
+				if (!string.IsNullOrEmpty (argument))
+					{
+					LaunchApp (argument);
+					}
+
+				break;
+			case "REFRESHAPPS":
+				_ = RefreshAppsAsync ();
+				break;
+			case "REFRESHSTATUS":
+				_ = RefreshStatusAsync ();
+				break;
+			case "MUTE":
+				if (string.Equals (argument, "Toggle", StringComparison.OrdinalIgnoreCase))
+					{
+					_ = ToggleMuteAsync ();
+					}
+
+				break;
+			case "SETTEXT":
+				if (argument is not null)
+					{
+					_ = _keyboardBridge.SetTextAsync (AppleTvBridgeProtocol.DecodeText (argument));
+					}
+
+				break;
+			}
+		}
+
+	// Launches an app by bundle id
+	// diagnostic log rather than throwing back into the bridge server's read loop.
+	private void LaunchApp (string bundleId)
+		{
+		if (_session?.Api is null)
+			{
+			return;
+			}
+
+		_ = SendAndLogAsync (() => _session.Api.LaunchAppAsync (bundleId));
+		}
+
+	// Fetches the current app list from the live Companion Link session and relays it to any
+	// connected bridge client as a single EVT:APPS: line. Also called once automatically after
+	// every successful ConnectCompanionAsync so a freshly (re)connected extension driver client
+	// does not have to wait for an explicit CMD:REFRESHAPPS round trip to populate its app list.
+	internal async Task RefreshAppsAsync ()
+		{
+		if (_session?.Api is null)
+			{
+			return;
+			}
+
+		try
+			{
+			Dictionary<string, string> apps = await _session.Api.AppListAsync ().ConfigureAwait (false);
+			var ordered = new List<(string BundleId, string Name)> ();
+			foreach (KeyValuePair<string, string> app in apps)
+				{
+				ordered.Add ((app.Key, app.Value));
+				}
+
+			ordered.Sort ((left, right) => string.Compare (left.Name, right.Name, StringComparison.OrdinalIgnoreCase));
+			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventAppsPrefix + AppleTvBridgeProtocol.EncodeApps (ordered));
+			}
+		catch (Exception exception)
+			{
+			LogDiagnostic ($"Failed to fetch Apple TV app list for the bridge: {exception.Message}");
+			}
+		}
+
+	// Toggles mute on the live Companion Link session and relays the resulting state to any
+	// connected bridge client as an EVT:MUTE: line.
+	private async Task ToggleMuteAsync ()
+		{
+		if (_session?.Api is null)
+			{
+			return;
+			}
+
+		try
+			{
+			bool isMuted = await _session.Api.ToggleMuteAsync ().ConfigureAwait (false);
+			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventMutePrefix + (isMuted ? "1" : "0"));
+			}
+		catch (Exception exception)
+			{
+			LogDiagnostic ($"Failed to toggle mute for the bridge: {exception.Message}");
+			}
 		}
 
 	public override void Dispose ()

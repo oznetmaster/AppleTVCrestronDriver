@@ -1,0 +1,47 @@
+{
+	"SchemaVersion": "2.0",
+	"GeneralInformation": {
+		"MinSdkVersion": "27.0000.0000",
+		"Guid": "9c1b9f55-4c2e-4b3a-9f7e-3e5c2f6c9e10",
+		"DeviceType": "Video Server Extension",
+		"Manufacturer": "Apple",
+		"BaseModel": "Apple TV Companion Media",
+		"OtherSupportedModels": [],
+		"SupportedSeries": [
+			"Apple TV"
+		],
+		"DependencyGroup": "",
+		"Developer": {
+			"Company": "Neil Colvin",
+			"Contact": "Neil Colvin",
+			"Email": "",
+			"Website": "",
+			"PhoneNumber": ""
+		},
+		"DriverVersion": "1.3.000.0000",
+		"VersionDate": "2026-08-13 06:10:26.661"
+	},
+	"ConfigurationSteps": {
+		"Items": [
+			{
+				"Id": "AppleTvName",
+				"Title": "Apple TV Name",
+				"Description": "The name of the Apple TV to control, exactly as it appears configured on the Apple TV Companion Link video server driver. This driver does not pair with the Apple TV itself; it connects to that video server driver's local bridge, which owns the single pairing/session for this Apple TV.",
+				"Required": true,
+				"Persistent": true,
+				"ValueType": "String"
+			}
+		],
+		"Steps": [
+			{
+				"StepId": "AppleTvConfiguration",
+				"Items": [
+					"AppleTvName"
+				],
+				"NextStep": null
+			}
+		],
+		"FirstStep": "AppleTvConfiguration",
+		"IsNotOfflineConfigurable": true
+	}
+}

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<uidefinition xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="https://prd-use-rad-assets.azurewebsites.net/ExtensionsSchemaDefinition.xsd">
+	<version ver="3.0" />
+	<tile icon="{tileIcon}" status="{tileDisplay}" navigation="show:MainPage" showinhomepage="#false" showinroompage="#true"/>
+	<layouts>
+		<layout id="MainPage" title="^MainPageTitle|{deviceLabel}" subtitle="{statusSummary}" isdefaultlayout="#true">
+			<controls>
+				<listbutton id="AppSelector" label="{selectedAppName}" source="{appList}" itemlabel="{.name}" action="command:setSelectedApp" actionparameters="{.bundleId}" />
+				<toggle id="PowerToggle" label="^PowerToggleLabel" secondarylabel="{powerStatusLabel}" value="{powerIsOn}" />
+				<textentry id="KeyboardTextEntry" label="^KeyboardTextLabel" value="{keyboardText}" visible="{keyboardFocused}" />
+				<buttongroup>
+					<button id="MenuButton" icon="#icBack" action="command:menu" />
+					<button id="HomeButton" icon="#icHomeRegular" action="command:home" />
+				</buttongroup>
+				<dpad id="RemoteDpad" buttondpadup="command:arrowUp" buttondpaddown="command:arrowDown" buttondpadleft="command:arrowLeft" buttondpadright="command:arrowRight" buttondpadcenter="command:select" />
+				<buttongroup>
+					<button id="RewindButton" icon="#icRewind" action="command:rewind" />
+					<button id="ReverseSkipButton" icon="#icPrevious" action="command:reverseSkip" />
+					<button id="PlayPauseButton" icon="#icPlayAndPause" action="command:playPause" />
+					<button id="ForwardSkipButton" icon="#icNext" action="command:forwardSkip" />
+					<button id="FastForwardButton" icon="#icFastForward" action="command:fastForward" />
+				</buttongroup>
+				<buttongroup visible="{volumeControlSupported}">
+					<button id="VolumeDownButton" icon="#icVolumeDown" action="command:volumeDown" />
+					<button id="MuteButton" icon="#icMute" action="command:toggleMute" />
+					<button id="VolumeUpButton" icon="#icVolumeUp" action="command:volumeUp" />
+				</buttongroup>
+			</controls>
+		</layout>
+	</layouts>
+	<alerts />
+</uidefinition>

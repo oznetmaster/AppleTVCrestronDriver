@@ -158,6 +158,30 @@ jobs:
             if ($tagVersion -match '^\d+\.\d+\.\d+$' -and $tagVersion -ne $releaseVersion) {
               throw "GitHub tag version '$tagVersion' does not match expected Release version '$releaseVersion' derived from pre-build DriverVersion '$driverVersion'."
             }
+
+            # The two drivers are released together as a single interlocked release (the extension driver
+            # reuses the video server driver's paired-credential storage/session code), so their
+            # major.minor.release must always agree even though each keeps its own independent build number.
+            $extensionManifestPath = Join-Path $env:GITHUB_WORKSPACE 'AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.json'
+            if (-not (Test-Path $extensionManifestPath)) {
+              throw "Extension driver manifest was not found at '$extensionManifestPath'."
+            }
+
+            $extensionManifest = Get-Content $extensionManifestPath -Raw | ConvertFrom-Json
+            $extensionDriverVersion = $extensionManifest.CrestronSerialDeviceApi.GeneralInformation.DriverVersion
+            if ([string]::IsNullOrWhiteSpace($extensionDriverVersion)) {
+              throw 'DriverVersion is missing from the extension driver manifest.'
+            }
+
+            $extensionMatch = [regex]::Match($extensionDriverVersion, '^(?<major>\d+)\.(?<minor>\d+)\.(?<release>\d+)\.(?<build>\d+)$')
+            if (-not $extensionMatch.Success) {
+              throw "Extension driver DriverVersion '$extensionDriverVersion' does not contain four numeric components."
+            }
+
+            $extensionReleaseVersion = '{0}.{1}.{2}' -f $extensionMatch.Groups['major'].Value, $extensionMatch.Groups['minor'].Value, [int]$extensionMatch.Groups['release'].Value
+            if ($extensionReleaseVersion -ne $releaseVersion) {
+              throw "Extension driver release version '$extensionReleaseVersion' (from DriverVersion '$extensionDriverVersion') does not match video server driver release version '$releaseVersion'. Both manifests must share the same major.minor.release for a single interlocked release."
+            }
           }
 
           "value=$releaseVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
@@ -167,7 +191,7 @@ jobs:
         run: |
           dotnet build AppleTVCrestronDriver.slnx -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
 
-      - name: Locate package
+      - name: Locate video server package
         id: package
         shell: pwsh
         run: |
@@ -178,7 +202,18 @@ jobs:
 
           "pkg_path=$($pkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Pack NuGet package
+      - name: Locate extension package
+        id: extension_package
+        shell: pwsh
+        run: |
+          $pkg = Get-ChildItem -Path "$env:GITHUB_WORKSPACE\AppleTVCrestronExtensionDriver\bin\Release" -Filter *.pkg -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          if ($null -eq $pkg) {
+            throw 'No .pkg file was generated in AppleTVCrestronExtensionDriver/bin/Release.'
+          }
+
+          "pkg_path=$($pkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Pack video server NuGet package
         shell: pwsh
         run: |
           $outputDir = Join-Path $env:RUNNER_TEMP 'nuget-package'
@@ -203,22 +238,62 @@ jobs:
 
           dotnet pack AppleTVCrestronDriver/AppleTVCrestronDriver.csproj -c Release --no-build --output $outputDir -p:PackageVersion="${{ steps.package_version.outputs.value }}" -p:PackageDriverPkgPath="${{ steps.package.outputs.pkg_path }}" -p:PackageDriverManifestPath="$manifestPath" -p:PackageReleaseNotesFile="${{ steps.release_notes.outputs.path }}"
 
-      - name: Locate NuGet package
+      - name: Pack extension NuGet package
+        shell: pwsh
+        run: |
+          $outputDir = Join-Path $env:RUNNER_TEMP 'nuget-package'
+          $manifestPath = Join-Path $env:RUNNER_TEMP 'crestron-driver-extension-package.json'
+          New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+
+          $manifest = @{
+            standardVersion = '1.0'
+            packageType = 'CrestronHomeDriver'
+            driverPlatform = 'Crestron Home'
+            payloadType = 'pkg'
+            payloadFile = [System.IO.Path]::GetFileName("${{ steps.extension_package.outputs.pkg_path }}")
+            containsManagedDllPayload = $false
+            packageId = 'CrestronHomeDriver.Apple.AppleTVExtension'
+            packageVersion = "${{ steps.package_version.outputs.value }}"
+            displayName = 'AppleTV Extension Driver'
+            vendor = 'Apple'
+            driverCategory = 'Extension'
+          } | ConvertTo-Json -Depth 5
+
+          Set-Content -Path $manifestPath -Value $manifest -Encoding UTF8
+
+          dotnet pack AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj -c Release --no-build --output $outputDir -p:PackageVersion="${{ steps.package_version.outputs.value }}" -p:PackageDriverPkgPath="${{ steps.extension_package.outputs.pkg_path }}" -p:PackageDriverManifestPath="$manifestPath" -p:PackageReleaseNotesFile="${{ steps.release_notes.outputs.path }}"
+
+      - name: Locate video server NuGet package
         id: nuget_package
         shell: pwsh
         run: |
-          $nupkg = Get-ChildItem -Path (Join-Path $env:RUNNER_TEMP 'nuget-package') -Filter *.nupkg -File |
+          $nupkg = Get-ChildItem -Path (Join-Path $env:RUNNER_TEMP 'nuget-package') -Filter 'CrestronHomeDriver.Apple.AppleTV.*.nupkg' -File |
+            Where-Object { $_.Name -notlike '*.symbols.nupkg' -and $_.Name -notlike 'CrestronHomeDriver.Apple.AppleTVExtension.*' } |
+            Sort-Object LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+
+          if ($null -eq $nupkg) {
+            throw 'No video server NuGet package (.nupkg) was generated.'
+          }
+
+          "nupkg_path=$($nupkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Locate extension NuGet package
+        id: extension_nuget_package
+        shell: pwsh
+        run: |
+          $nupkg = Get-ChildItem -Path (Join-Path $env:RUNNER_TEMP 'nuget-package') -Filter 'CrestronHomeDriver.Apple.AppleTVExtension.*.nupkg' -File |
             Where-Object { $_.Name -notlike '*.symbols.nupkg' } |
             Sort-Object LastWriteTimeUtc -Descending |
             Select-Object -First 1
 
           if ($null -eq $nupkg) {
-            throw 'No NuGet package (.nupkg) was generated.'
+            throw 'No extension NuGet package (.nupkg) was generated.'
           }
 
           "nupkg_path=$($nupkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
-      - name: Publish NuGet package
+      - name: Publish NuGet packages
         shell: pwsh
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
@@ -228,17 +303,22 @@ jobs:
           }
 
           dotnet nuget push "${{ steps.nuget_package.outputs.nupkg_path }}" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+          dotnet nuget push "${{ steps.extension_nuget_package.outputs.nupkg_path }}" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
 
-      - name: Upload package artifact
+      - name: Upload package artifacts
         uses: actions/upload-artifact@v4
         with:
           name: AppleTVCrestronDriver-pkg
-          path: ${{ steps.package.outputs.pkg_path }}
+          path: |
+            ${{ steps.package.outputs.pkg_path }}
+            ${{ steps.extension_package.outputs.pkg_path }}
           if-no-files-found: error
 
-      - name: Upload package asset
+      - name: Upload package assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.release.tag_name || github.ref_name }}
-          files: ${{ steps.package.outputs.pkg_path }}
+          files: |
+            ${{ steps.package.outputs.pkg_path }}
+            ${{ steps.extension_package.outputs.pkg_path }}
           fail_on_unmatched_files: true

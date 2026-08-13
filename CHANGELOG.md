@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the paired
+[AppleTVCrestronExtensionDriver changelog](AppleTVCrestronExtensionDriver/CHANGELOG.md) for the
+Extension driver's release history. Both packages are released together from this repository
+under the same version tag.
+
+## [1.3.0] - 2026-08-13
+
+### Added
+
+- Added `SupportsForwardScan`/`SupportsReverseScan` (rewind/fast-forward) and
+  `SupportsForwardSkip`/`SupportsReverseSkip` (previous/next track) support to the driver
+  manifest, matching the corresponding rewind/fast-forward and skip commands the driver already
+  implements.
+
+### Changed
+
+- Synchronized versioning with the new companion `CrestronHomeDriver.Apple.AppleTVExtension`
+  extension driver package, which is now released together with this driver from this repository
+  under the same version tag. See the [Extension driver's changelog](AppleTVCrestronExtensionDriver/CHANGELOG.md)
+  for its own release notes.
+
 ## [1.1.2] - 2026-08-11
 
 ### Fixed

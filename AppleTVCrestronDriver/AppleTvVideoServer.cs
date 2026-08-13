@@ -26,6 +26,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private AppleTvNoOpTransport _transport;
 	private AppleTvStoredDevice _storedDevice;
+	private AppleTvBridgeServerHandlerRegistration _bridgeHandlerRegistration;
 
 	// Pairing state, and the configure gate, live in the static singleton
 	// (AppleTvPairingSessionState.Instance) rather than on instance fields,
@@ -44,6 +45,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	public void Initialize ()
 		{
 		LogDiagnostic ("Initializing Apple TV Companion Video Server.");
+		LegacyCredentialMigrator.MigrateIfNeeded (BaseModel);
 		_transport = new AppleTvNoOpTransport
 			{
 			EnableLogging = InternalEnableLogging,
@@ -60,6 +62,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		protocol.PairingPinChanged += pairingPin => _ = HandlePairingPinChangedAsync (protocol, pairingPin);
 		protocol.PairNowRequested += () => _ = HandlePairNowRequestedAsync ();
 		protocol.PairNowTurnedOff += () => HandlePairNowTurnedOff (protocol);
+		protocol.CompanionDisconnected += () => _ = HandleCompanionDisconnectedAsync (protocol);
 		protocol.StateChange += StateChange;
 		protocol.RxOut += SendRxOut;
 
@@ -144,7 +147,8 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	/// <summary>
 	/// Releases the active Companion Link session and any pending pairing session.
 	/// </summary>
-	public override void Dispose () =>
+	public override void Dispose ()
+		{
 		// Do not dispose the pairing session, its gate, or the configure gate
 		// here: they are owned by the static AppleTvPairingSessionState
 		// singleton so in-flight work survives this instance being recreated
@@ -159,7 +163,19 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// hold an unmanaged handle unless AvailableWaitHandle is used (it is
 		// not), so leaving them undisposed here is safe and simply lets them
 		// be collected once no longer referenced.
+		//
+		// Clear this instance's own bridge command handler registration, but
+		// only if it is still the one currently installed: a bridge server
+		// outlives this driver instance across Crestron Home reinitializations
+		// (see AppleTvBridgeServerRegistry), so leaving a stale handler in
+		// place would let commands relayed from a connected extension driver
+		// keep being routed to this now-disposed protocol - whose Companion
+		// Link session is gone - instead of failing loudly or waiting for the
+		// next instance to install its own handler.
+		_bridgeHandlerRegistration?.ClearIfCurrent ();
+
 		base.Dispose ();
+		}
 
 	// These are invoked as fire-and-forget from synchronous RAD SDK event delegates
 	// (Action/Action<string>), which offer no way to await a result back into
@@ -295,6 +311,79 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			}
 		}
 
+	// Companion Link has no built-in keepalive/reconnect (confirmed against
+	// AppleTVControlLibrary v1.1.4's CompanionApi.ConnectionClosed doc
+	// remarks: "this library does not implement automatic reconnection;
+	// consumers that want to reconnect must do so themselves"). Once the
+	// session's TCP connection drops or its frame transport faults (e.g. a
+	// transient Wi-Fi/network blip), AppleTvCompanionSession reports it once
+	// and never retries on its own; without this handler the device would
+	// stay offline in Crestron Home until the user manually reloads the
+	// driver. This is only invoked for an unexpected fault (never for our
+	// own intentional session teardown - see
+	// AppleTvVideoServerProtocol.HandleSessionConnectionClosed), matching
+	// the AppleTV.Remote.Wpf reference host's ConnectionClosed handling,
+	// including its bounded, increasing retry schedule (2s/5s/10s/20s/30s)
+	// that gives up rather than retrying forever once the device stays
+	// unreachable.
+	private async Task HandleCompanionDisconnectedAsync (AppleTvVideoServerProtocol protocol)
+		{
+		try
+			{
+			LogDiagnostic ("Companion Link session disconnected unexpectedly; attempting to reconnect.");
+			TimeSpan[] retryDelays =
+				{
+				TimeSpan.FromSeconds (2),
+				TimeSpan.FromSeconds (5),
+				TimeSpan.FromSeconds (10),
+				TimeSpan.FromSeconds (20),
+				TimeSpan.FromSeconds (30),
+				};
+
+			for (int attempt = 1; attempt <= retryDelays.Length; attempt++)
+				{
+				// A newer driver instance may have since taken over (e.g. the
+				// user edited configuration during the outage); stop retrying
+				// on this now-superseded instance rather than racing it.
+				if (!ReferenceEquals (AppleTvPairingSessionState.Instance.CurrentProtocol, protocol))
+					{
+					LogDiagnostic ("Abandoning reconnect attempts because a newer driver instance has since taken over.");
+					return;
+					}
+
+				await Task.Delay (retryDelays[attempt - 1]).ConfigureAwait (false);
+
+				if (!ReferenceEquals (AppleTvPairingSessionState.Instance.CurrentProtocol, protocol))
+					{
+					LogDiagnostic ("Abandoning reconnect attempts because a newer driver instance has since taken over.");
+					return;
+					}
+
+				try
+					{
+					LogDiagnostic ($"Reconnect attempt {attempt} of {retryDelays.Length}.");
+					await ConfigureAppleTvAsync (protocol, protocol.AppleTvName).ConfigureAwait (false);
+					if (protocol.IsConnected)
+						{
+						LogDiagnostic ("Reconnected successfully.");
+						return;
+						}
+					}
+				catch (Exception exception)
+					{
+					LogDiagnostic ($"Reconnect attempt {attempt} failed.");
+					LogException (exception);
+					}
+				}
+
+			LogDiagnostic ("Could not reconnect to the Apple TV after repeated attempts; reload the driver to retry manually.");
+			}
+		catch (Exception exception)
+			{
+			LogException (exception);
+			}
+		}
+
 	private async Task ConfigureAppleTvAsync (AppleTvVideoServerProtocol protocol, string appleTvName)
 		{
 		AppleTvPairingSessionState session = AppleTvPairingSessionState.Instance;
@@ -396,7 +485,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					return;
 					}
 
-				device = AppleTvStoredDevice.LoadForName (appleTvName);
+				device = AppleTvStoredDevice.LoadForName (appleTvName, BaseModel);
 				if (device is not null)
 					{
 					SaveStoredDevice (device);
@@ -517,7 +606,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 					LogException (exception);
 					}
 
-				AppleTvStoredDevice currentDevice = AppleTvStoredDevice.LoadForName (device.Name);
+				AppleTvStoredDevice currentDevice = AppleTvStoredDevice.LoadForName (device.Name, BaseModel);
 				if (currentDevice is not null && currentDevice.IsPaired)
 					{
 					try
@@ -547,7 +636,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				device.Name = discovered.Name;
 				if (endpointChanged)
 					{
-					AppleTvStoredDevice.Save (device);
+					AppleTvStoredDevice.Save (device, BaseModel);
 					LogDiagnostic ($"Saved endpoint refreshed for '{device.Name}'; reconnecting.");
 					}
 				else
@@ -566,7 +655,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			// yet. If pairing was started and completed on another (newer) driver instance
 			// while this discovery scan was in flight, a paired record now exists for this
 			// unique id; do not clobber it with this stale, unpaired discovery record.
-			AppleTvStoredDevice existingDevice = AppleTvStoredDevice.LoadForName (appleTvName);
+			AppleTvStoredDevice existingDevice = AppleTvStoredDevice.LoadForName (appleTvName, BaseModel);
 			if (existingDevice is not null && existingDevice.IsPaired)
 				{
 				LogDiagnostic ($"Discovery for '{appleTvName}' completed after pairing already succeeded elsewhere; keeping the paired credentials.");
@@ -586,7 +675,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 				Name = discovered.Name,
 				UniqueId = discovered.UniqueId ?? string.Empty,
 				};
-			AppleTvStoredDevice.Save (discoveredDevice);
+			AppleTvStoredDevice.Save (discoveredDevice, BaseModel);
 			SaveStoredDevice (discoveredDevice);
 			SetDiscoveredUnpairedStatus (discovered.Name);
 			LogDiagnostic ($"Discovered but unpaired identity persisted for '{discovered.Name}'; awaiting Pair Now.");
@@ -719,7 +808,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
 			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
 			device.UniqueId = session.Target.UniqueId;
-			AppleTvStoredDevice.Save (device);
+			AppleTvStoredDevice.Save (device, BaseModel);
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
 			ClearPairing ();
@@ -766,9 +855,9 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 	private async Task ConnectCompanionAsync (AppleTvVideoServerProtocol protocol, AppleTvStoredDevice device, string address, int port)
 		{
-		#if DEBUG
+#if DEBUG
 		LogDiagnostic ($"Starting Companion TCP connection to {address}:{port}.");
-		#endif
+#endif
 		await protocol.ConnectCompanionAsync (
 			address,
 			port,
@@ -777,6 +866,47 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			device.Name).ConfigureAwait (false);
 		ClearPairing ();
 		LogDiagnostic ($"Companion session initialized for '{device.Name}'.");
+		StartBridgeServer (protocol, device.UniqueId);
+		}
+
+	// Starts (or reattaches to an already-running) loopback bridge server for this Apple TV,
+	// keyed by its stable UniqueId, so a local client (the Entity V2 extension driver) can send
+	// tokenized commands and receive tokenized events through the single Companion Link
+	// connection this driver instance owns, instead of connecting to the Apple TV directly.
+	// Reattaching the handler/event subscription every time (rather than only on first start)
+	// keeps the bridge pointed at whichever protocol/session instance is actually current after
+	// a Crestron Home reinitialization, exactly like AppleTvPairingSessionState's own instance
+	// hand-off.
+	private void StartBridgeServer (AppleTvVideoServerProtocol protocol, string uniqueId)
+		{
+		if (string.IsNullOrWhiteSpace (uniqueId))
+			{
+			return;
+			}
+
+		AppleTvBridgeServer bridgeServer = AppleTvBridgeServerRegistry.GetOrStart (uniqueId, LogDiagnostic);
+		var handler = new BridgeCommandHandler (protocol);
+		protocol.BridgeEventRaised += bridgeServer.BroadcastEvent;
+
+		// Tracked so Dispose() below can detect and clear this instance's own
+		// handler registration if this driver instance is torn down (e.g. by a
+		// Crestron Home reinitialization) before a subsequent instance finishes
+		// reconnecting Companion Link and re-registers its own handler. Without
+		// this, a bridge command arriving in that window would still be routed
+		// to this now-disposed protocol, whose _session is null, so it would be
+		// silently dropped instead of reaching the live session.
+		_bridgeHandlerRegistration = AppleTvBridgeServerHandlerRegistration.Install (bridgeServer, handler);
+		}
+
+	// Adapts AppleTvVideoServerProtocol.DispatchBridgeCommand to IAppleTvBridgeCommandHandler so
+	// the bridge server can apply relayed commands without depending on this driver's own type.
+	private sealed class BridgeCommandHandler : IAppleTvBridgeCommandHandler
+		{
+		private readonly AppleTvVideoServerProtocol _protocol;
+
+		internal BridgeCommandHandler (AppleTvVideoServerProtocol protocol) => _protocol = protocol;
+
+		public void HandleBridgeCommand (string commandLine) => _protocol.DispatchBridgeCommand (commandLine);
 		}
 
 	private void ClearPairing ()

@@ -8,6 +8,10 @@ A **Crestron Home** Video Server driver that controls an **Apple TV** over its *
 
 ---
 
+> **Two packages, one repository:** This repository hosts two separately installable Crestron Home drivers that are released together under the same version tag: this **Video Server driver** (`CrestronHomeDriver.Apple.AppleTV`), documented below, and a companion **Extension driver** (`CrestronHomeDriver.Apple.AppleTVExtension`) that adds an app-selection and remote-control UI on top of it. Because GitHub only renders one root README, see [AppleTVCrestronExtensionDriver/README.md](AppleTVCrestronExtensionDriver/README.md) for the Extension driver's own installation, configuration, and changelog.
+
+---
+
 ## Driver Architecture
 
 This driver is a **Crestron Home Video Server driver**, implemented on the Crestron RAD `ABasicVideoServer` model. It connects to a single Apple TV over the Companion Link protocol using the [AppleTVControlLibrary](https://github.com/oznetmaster/AppleTVControlLibrary) NuGet package for pairing, session, and remote-control functionality, and its companion `AppleTVControlLibrary.Discovery` package for locating the Apple TV on the network by name.
@@ -91,22 +95,31 @@ The build pipeline:
 
 This repository includes a GitHub Actions workflow that builds the Release package and attaches the generated `.pkg` to a GitHub Release.
 
-The same release workflow also publishes the `AppleTVCrestronDriver` NuGet package, which wraps the final generated `.pkg` artifact.
+The same release workflow builds and publishes **both** packages together from this repository: this driver's `CrestronHomeDriver.Apple.AppleTV` NuGet package and the companion [Extension driver](AppleTVCrestronExtensionDriver/README.md)'s `CrestronHomeDriver.Apple.AppleTVExtension` NuGet package, each wrapping its own generated `.pkg` artifact. The workflow validates that both driver manifests share the same major.minor.release version before building, since the two are released as a single interlocked release.
 
 Typical release flow:
-1. Push the release commit and tag
+1. Push the release commit and tag (after confirming both driver manifests' `DriverVersion` major.minor.release match)
 2. Publish the GitHub Release for that tag
-3. Let the workflow build and attach the `.pkg` asset automatically
+3. Let the workflow build and attach both `.pkg` assets, and publish both NuGet packages, automatically
 
 ---
 
 ## Testing
 
 `AppleTVCrestronDriver.Tests` is an MSTest unit/integration test project covering the driver logic that
-does not require a live Crestron control system or a physical Apple TV (pairing state helpers, stored
-credential persistence, and the Companion Link pairing handshake). It is **not** a publishable artifact
-(`IsPackable`/`IsPublishable` are both `false`) and is not part of the release `.pkg`/NuGet package built
-above -- it exists purely to validate the driver source in this repository during development.
+does not require a live Crestron control system or a physical Apple TV. Coverage includes:
+
+- Pairing state helpers and stored credential persistence
+- The Companion Link pairing handshake, driven end-to-end against the in-repo fake device/host
+- Bridge protocol command/event tokenization and Base64 text encode/decode round-trips
+  (`AppleTvBridgeProtocol`)
+- The extracted keyboard focus/text relay bridge (`AppleTvKeyboardBridge`), including on-screen
+  keyboard show/hide and live text forwarding, without needing to construct the full Crestron RAD
+  base-driver chain
+
+It is **not** a publishable artifact (`IsPackable`/`IsPublishable` are both `false`) and is not part of
+the release `.pkg`/NuGet package built above -- it exists purely to validate the driver source in this
+repository during development.
 
 ### Running the tests
 
@@ -130,6 +143,7 @@ the non-built `AppleTV.Companion`/`AppleTV.Companion.Discovery` source projects.
 - XML documentation generation is enabled in the project build
 - The release workflow builds the package on `windows-latest`
 - The repository includes the driver package/build scripts needed for packaging and deployment
+- The [Extension driver](AppleTVCrestronExtensionDriver/README.md) project links several source files directly from this project (shared credential-lookup and bridge client code) rather than using a `ProjectReference`, so it cannot be built or extracted into a separate repository independently of this one
 
 ---
 

@@ -12,6 +12,16 @@ namespace AppleTV.CrestronDriver;
 
 internal sealed class AppleTvStoredDevice
 	{
+	// The Crestron video server driver's own manifest BaseModel (AppleTVCrestronDriver.json's
+	// GeneralInformation.BaseModel). The video server is the sole owner of Companion Link
+	// pairing/credentials and therefore the sole owner of each Apple TV's UniqueId - the value
+	// the bridge (see AppleTvBridgePort/AppleTvBridgeServer) derives its loopback port from. The
+	// extension driver (a distinct manifest BaseModel, "Apple TV Companion Media", with its own
+	// isolated credential storage - see SharedStorage/CrestronCredentialFileStore) uses this
+	// constant purely to look up the video server's UniqueId for a given Apple TV name so it can
+	// compute the same bridge port candidates, never to read or reuse its pairing credentials.
+	internal const string VideoServerBaseModel = "Apple TV Companion";
+
 	public string Address { get; set; } = string.Empty;
 
 	public int Port { get; set; }
@@ -39,7 +49,7 @@ internal sealed class AppleTvStoredDevice
 
 	internal HapCredentials ToCredentials () => new (Ltpk, Ltsk, AtvId, ClientId);
 
-	internal static AppleTvStoredDevice LoadForName (string name) => LoadForName (name, new CrestronCredentialFileStore ());
+	internal static AppleTvStoredDevice LoadForName (string name, string baseModel) => LoadForName (name, new CrestronCredentialFileStore (baseModel));
 
 	internal static AppleTvStoredDevice LoadForName (string name, ICredentialFileStore store)
 		{
@@ -73,7 +83,7 @@ internal sealed class AppleTvStoredDevice
 		return null;
 		}
 
-	internal static void Save (AppleTvStoredDevice device) => Save (device, new CrestronCredentialFileStore ());
+	internal static void Save (AppleTvStoredDevice device, string baseModel) => Save (device, new CrestronCredentialFileStore (baseModel));
 
 	internal static void Save (AppleTvStoredDevice device, ICredentialFileStore store)
 		{

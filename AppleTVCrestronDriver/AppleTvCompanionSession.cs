@@ -44,6 +44,14 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 	internal event Action<bool> ConnectionStateChanged;
 
+	// Raised whenever the underlying Companion Link connection is closed or
+	// lost (library v1.1.4+ CompanionApi.ConnectionClosed), whether cleanly
+	// (e.g. this session's own Dispose) or unexpectedly (transport/decrypt/
+	// dispatch failure). The exception is null for a clean/expected close and
+	// non-null for an unexpected fault, letting callers decide whether an
+	// automatic reconnect is warranted.
+	internal event Action<Exception> ConnectionClosed;
+
 	// Raised whenever the Apple TV's pushed SystemStatus/TVSystemStatus updates
 	// indicate the device's power state (asleep vs. awake/screensaver/idle) has
 	// changed, so the driver can reflect it in Crestron Home instead of only
@@ -90,13 +98,18 @@ internal sealed class AppleTvCompanionSession : IDisposable
 				 protocol,
 				 credentials,
 				 stableIdentifier,
-				 Convert.ToString (credentials.AtvId),
+				 ToHexString (credentials.AtvId).ToLowerInvariant (),
 				 "AppleTV",
 				 appleTvName);
 			// Subscribed before ConnectAsync so that a status transition arriving
 			// during the connect sequence itself (rather than only afterwards)
 			// cannot be missed.
 			session.Api.SystemStatusChanged += session.HandleSystemStatusChanged;
+			// Authoritative connection-loss signal (library v1.1.4+): raised for
+			// both a clean close and an unexpected fault (transport/decrypt/
+			// dispatch failure), superseding this session's own read-loop-only
+			// fault detection below.
+			session.Api.ConnectionClosed += session.HandleConnectionClosed;
 			await session.Api.ConnectAsync ().ConfigureAwait (false);
 			log?.Invoke ("Companion API session connected.");
 			#if DEBUG
@@ -182,7 +195,13 @@ internal sealed class AppleTvCompanionSession : IDisposable
 				int read = _client.GetStream ().Read (buffer, 0, buffer.Length);
 				if (read == 0)
 					{
-					SetConnectionState (false);
+					if (!_disposed)
+						{
+						_log?.Invoke ("Companion connection closed by remote end.");
+						_connection.Fault (null);
+						SetConnectionState (false);
+						}
+
 					return;
 					}
 
@@ -196,7 +215,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			if (!_disposed)
 				{
 				_log?.Invoke ($"Companion read loop failed: {exception.GetType ().FullName}: {exception.Message}");
-				_connection.Fault (null);
+				_connection.Fault (exception);
 				SetConnectionState (false);
 				}
 			}
@@ -213,6 +232,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		if (Api is not null)
 			{
 			Api.SystemStatusChanged -= HandleSystemStatusChanged;
+			Api.ConnectionClosed -= HandleConnectionClosed;
 			#if DEBUG
 			Api.MediaControlCapabilitiesChanged -= HandleMediaControlCapabilitiesChanged;
 			#endif
@@ -220,6 +240,26 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 		SetConnectionState (false);
 		_client.Close ();
+		}
+
+	// CompanionApi.ConnectionClosed (library v1.1.4+) is the authoritative
+	// signal that the connection is gone. Dispose() above unsubscribes from
+	// it before closing the socket, so this only ever fires for a genuine
+	// external closure - a clean remote close (Exception == null) or an
+	// unexpected fault (transport/decrypt/dispatch failure,
+	// Exception != null) - never for our own intentional teardown. ReadLoop
+	// below still independently detects a dead socket (a zero-byte read or
+	// I/O exception) as a fallback for cases the connection layer itself
+	// does not observe, but this event is the primary path.
+	private void HandleConnectionClosed (object sender, ConnectionClosedEventArgs e)
+		{
+		if (e.Exception is not null)
+			{
+			_log?.Invoke ($"Companion connection closed unexpectedly: {e.Exception.GetType ().FullName}: {e.Exception.Message}");
+			}
+
+		SetConnectionState (false);
+		ConnectionClosed?.Invoke (e.Exception);
 		}
 
 	private void SetConnectionState (bool connected)
@@ -254,4 +294,29 @@ internal sealed class AppleTvCompanionSession : IDisposable
 	private void HandleMediaControlCapabilitiesChanged (object sender, EventArgs e) =>
 		_log?.Invoke ($"Apple TV media control capabilities changed (volume control supported: {Api.IsVolumeControlSupported}).");
 	#endif
+
+	// Convert.ToString(byte[]) does NOT hex-encode; it calls object.ToString()
+	// on the array, always yielding the literal string "System.Byte[]" no
+	// matter the actual bytes. That bug meant every session from this driver
+	// (regardless of which Apple TV, which stored device, or whether it came
+	// from AppleTvVideoServer or AppleTvExtensionDriver) reported the exact
+	// same _pubID device identity to the Apple TV, causing each new session to
+	// look like a reconnect of an existing client and kick the previous one
+	// off Companion Link - producing an endless connect/disconnect loop when
+	// more than one session targeted the same Apple TV. Mirrors
+	// AppleTv.Remote.Wpf's AppleTvDeviceManager.ToHexString/Compat.ToHexString
+	// (this project targets net472, so string.Concat over "X2" is used instead
+	// of the newer Convert.ToHexString API).
+	private static string ToHexString (byte[] bytes)
+		{
+		var chars = new char[bytes.Length * 2];
+		for (int i = 0; i < bytes.Length; i++)
+			{
+			string hex = bytes[i].ToString ("X2", System.Globalization.CultureInfo.InvariantCulture);
+			chars[i * 2] = hex[0];
+			chars[(i * 2) + 1] = hex[1];
+			}
+
+		return new string (chars);
+		}
 	}
