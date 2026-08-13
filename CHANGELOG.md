@@ -9,6 +9,16 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [1.3.1] - 2026-08-13
+
+### Changed
+
+- Removed the extension driver's build-time dependency on `AppleTVControlLibrary`. The
+  Companion Link credential conversion (`ToCredentials()`) that only the video server driver
+  needs was moved out of the shared `AppleTvStoredDevice` model into a video-server-only
+  extension method, so the extension driver package no longer references or merges
+  `AppleTvControlLibrary.dll`. No behavior change for either driver.
+
 ## [1.3.0] - 2026-08-13
 
 ### Added

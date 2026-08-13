@@ -8,6 +8,16 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
+## [1.3.1] - 2026-08-13
+
+### Changed
+
+- No longer depends on `AppleTVControlLibrary`. The shared `AppleTvStoredDevice` model this
+  driver links now only exposes the fields/lookup it actually needs (device name, address,
+  port, unique id); the Companion Link credential conversion used solely by the paired video
+  server driver was moved into that driver's own project. This reduces the extension driver's
+  merged package size and removes an unnecessary dependency. No functional change.
+
 ## [1.3.0] - 2026-08-13
 
 ### Added

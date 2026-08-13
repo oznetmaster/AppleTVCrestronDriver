@@ -6,8 +6,6 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
-using AppleTvControlLibrary.Auth;
-
 namespace AppleTV.CrestronDriver;
 
 internal sealed class AppleTvStoredDevice
@@ -46,8 +44,6 @@ internal sealed class AppleTvStoredDevice
 	/// persisted before pairing has ever completed).
 	/// </summary>
 	public bool IsPaired => Ltpk.Length > 0 && Ltsk.Length > 0 && AtvId.Length > 0 && ClientId.Length > 0;
-
-	internal HapCredentials ToCredentials () => new (Ltpk, Ltsk, AtvId, ClientId);
 
 	internal static AppleTvStoredDevice LoadForName (string name, string baseModel) => LoadForName (name, new CrestronCredentialFileStore (baseModel));
 

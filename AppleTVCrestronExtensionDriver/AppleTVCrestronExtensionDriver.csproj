@@ -44,7 +44,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="1.1.4" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
@@ -59,14 +58,13 @@
 		  used only to resolve the Apple TV Companion Link video server driver's stored UniqueId for a given
 		  Apple TV name, never to read or reuse its pairing credentials - plus the bridge client/port/protocol
 		  helpers (AppleTvBridgeClient/AppleTvBridgePort/AppleTvBridgeProtocol) that let this driver talk to
-		  that video server driver's loopback bridge server. A ProjectReference was deliberately avoided:
-		  AppleTVCrestronDriver.csproj's build output is ILRepack-merged with AppleTvControlLibrary as a
-		  post-build step, so referencing that project directly would pull in a second, separately-merged copy
-		  of AppleTvControlLibrary's public types (e.g. HidCommand, MediaControlCommand) alongside this
-		  project's own direct PackageReference to AppleTvControlLibrary, causing CS0433 duplicate-type errors.
-		  Linking the source files instead compiles them once, directly against this project's own
-		  AppleTvControlLibrary reference. This driver no longer owns any live Companion Link session/pairing
-		  of its own - AppleTvCompanionSession/AppleTvCompanionPairing are intentionally not linked here. --> 
+		  that video server driver's loopback bridge server. A ProjectReference was deliberately avoided so
+		  this driver's own build stays self-contained. None of the linked files above reference
+		  AppleTvControlLibrary - the one file that did (AppleTvStoredDevice.ToCredentials(), used only to
+		  resume a Companion Link session) lives in AppleTvStoredDeviceCredentialsExtensions.cs instead, which
+		  is intentionally NOT linked here, so this project has no dependency on AppleTvControlLibrary at all.
+		  This driver no longer owns any live Companion Link session/pairing of its own -
+		  AppleTvCompanionSession/AppleTvCompanionPairing are intentionally not linked here either. --> 
 	<ItemGroup>
 		<Compile Include="..\AppleTVCrestronDriver\SharedStorage.cs" Link="Shared\SharedStorage.cs" />
 		<Compile Include="..\AppleTVCrestronDriver\ICredentialFileStore.cs" Link="Shared\ICredentialFileStore.cs" />
