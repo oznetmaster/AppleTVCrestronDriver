@@ -82,6 +82,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			{
 			await client.ConnectAsync (host, port).ConfigureAwait (false);
 			}
+
 		log?.Invoke ("TCP socket connected; starting pair verification.");
 
 		var connection = new CompanionConnection ();

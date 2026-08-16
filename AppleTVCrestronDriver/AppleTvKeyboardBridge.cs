@@ -40,7 +40,7 @@ internal sealed class AppleTvKeyboardBridge
 			}
 
 		bool focused = session.Api.TextFocusState == KeyboardFocusState.Focused;
-		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventKeyboardFocusPrefix + (focused ? "1" : "0"));
+		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX + (focused ? "1" : "0"));
 
 		if (!focused)
 			{
@@ -59,7 +59,7 @@ internal sealed class AppleTvKeyboardBridge
 
 		if (ReferenceEquals (session, _currentSessionProvider ()))
 			{
-			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventTextPrefix + AppleTvBridgeProtocol.EncodeText (currentText ?? string.Empty));
+			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX + AppleTvBridgeProtocol.EncodeText (currentText ?? string.Empty));
 			}
 		}
 

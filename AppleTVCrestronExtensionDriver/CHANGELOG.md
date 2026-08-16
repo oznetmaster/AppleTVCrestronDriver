@@ -8,6 +8,13 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
+## [1.3.3] - 2026-08-16
+
+### Changed
+
+- Bridge protocol constants renamed to `SCREAMING_CASE` (e.g. `CommandMedia` -> `COMMAND_MEDIA`) to
+  match updated `.editorconfig` naming rules; call sites updated accordingly. No functional change.
+
 ## [1.3.2] - 2026-08-16
 
 ### Changed

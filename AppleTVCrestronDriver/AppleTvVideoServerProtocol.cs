@@ -1,4 +1,4 @@
-// Copyright © 2026 Neil Colvin.
+// Copyright ï¿½ 2026 Neil Colvin.
 // Licensed under the MIT License with Commons Clause. See LICENSE file in the project root for full license information.
 
 using System;
@@ -95,7 +95,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			stableIdentifier,
 			appleTvName,
 			CancellationToken.None,
-			message => LogDiagnostic (message)).ConfigureAwait (false);
+			LogDiagnostic).ConfigureAwait (false);
 		_session = session;
 
 		// Captures 'session' rather than reading _session at invocation time,
@@ -150,7 +150,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			SystemStatus currentStatus = await session.Api.FetchAttentionStateAsync ().ConfigureAwait (false);
 			if (ReferenceEquals (session, _session))
 				{
-				BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventSystemStatusPrefix + currentStatus);
+				BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX + currentStatus);
 				}
 			}
 		catch (Exception exception)
@@ -172,7 +172,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			return;
 			}
 
-		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventSystemStatusPrefix + session.Api.CurrentSystemStatus);
+		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX + session.Api.CurrentSystemStatus);
 		}
 
 	// Relays whether the currently playing app/Apple TV advertises volume control support to any
@@ -185,7 +185,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 			return;
 			}
 
-		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventVolumeSupportedPrefix + (session.Api.IsVolumeControlSupported ? "1" : "0"));
+		BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX + (session.Api.IsVolumeControlSupported ? "1" : "0"));
 		}
 
 	private void HandleSessionConnectionStateChanged (AppleTvCompanionSession session, bool connected)
@@ -447,7 +447,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 				}
 
 			ordered.Sort ((left, right) => string.Compare (left.Name, right.Name, StringComparison.OrdinalIgnoreCase));
-			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventAppsPrefix + AppleTvBridgeProtocol.EncodeApps (ordered));
+			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_APPS_PREFIX + AppleTvBridgeProtocol.EncodeApps (ordered));
 			}
 		catch (Exception exception)
 			{
@@ -467,7 +467,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		try
 			{
 			bool isMuted = await _session.Api.ToggleMuteAsync ().ConfigureAwait (false);
-			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EventMutePrefix + (isMuted ? "1" : "0"));
+			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX + (isMuted ? "1" : "0"));
 			}
 		catch (Exception exception)
 			{

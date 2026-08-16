@@ -9,6 +9,26 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [1.3.3] - 2026-08-16
+
+### Fixed
+
+- Bumped the `AppleTVControlLibrary`/`AppleTVControlLibrary.Discovery` package references to `2.2.5`,
+  which declares `BouncyCastle.Cryptography` as an explicit dependency. The previous `2.2.4` packages'
+  `.nuspec` omitted that dependency (even though `AppleTv.Hap.dll`, bundled inside them, requires it at
+  runtime for `SrpAuthHandler`), so `BouncyCastle.Cryptography.dll` was never restored/merged into the
+  driver's shipped assembly, causing a `System.TypeLoadException` on the Crestron processor whenever
+  pairing/reconnect logic touched `SrpAuthHandler`.
+
+### Changed
+
+- Extension-driver bridge protocol constants renamed to `SCREAMING_CASE` (e.g. `CommandMedia` ->
+  `COMMAND_MEDIA`) to match updated `.editorconfig` naming rules; call sites updated accordingly. No
+  functional change.
+- `AppleTvBridgeProtocol.DecodeApps` now parses the encoded app-list token directly over
+  `ReadOnlySpan<char>` slices instead of allocating an intermediate `string[]` via `Split` plus a
+  substring per record. No functional change.
+
 ## [1.3.2] - 2026-08-16
 
 ### Changed

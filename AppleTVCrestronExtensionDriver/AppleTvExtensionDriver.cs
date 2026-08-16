@@ -27,7 +27,7 @@ namespace AppleTV.CrestronDriver.Extension;
 /// references the Companion Link control library at all; the only configuration it accepts is
 /// the Apple TV's name, which it uses to look up the same-named Apple TV Companion Link video
 /// server driver's stored <see cref="AppleTvStoredDevice.UniqueId"/> (see
-/// <see cref="AppleTvStoredDevice.VideoServerBaseModel"/>), derive that video server's loopback
+/// <see cref="AppleTvStoredDevice.VIDEO_SERVER_BASE_MODEL"/>), derive that video server's loopback
 /// bridge port candidates (<see cref="AppleTvBridgePort"/>), and connect to it as a bridge client
 /// (<see cref="AppleTvBridgeClient"/>). The video server owns the single live Companion Link
 /// pairing/session for that Apple TV; every command this driver issues and every event it reflects
@@ -47,7 +47,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	private readonly string _logControllerId;
 	private readonly UiDefinitionProperty _uiDefinition;
 	private readonly object _stateLock = new ();
-	private readonly List<(string BundleId, string Name)> _apps = new ();
+	private readonly List<(string BundleId, string Name)> _apps = [];
 
 	private CancellationTokenSource _connectCancellationTokenSource;
 	private AppleTvBridgeClient _bridgeClient;
@@ -55,7 +55,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	private string _lastUniqueId = string.Empty;
 	private int _refreshStatusRequestVersion;
 	private readonly Timer _appRefreshTimer;
-	private static readonly TimeSpan AppRefreshInterval = TimeSpan.FromMinutes (5);
+	private static readonly TimeSpan _appRefreshInterval = TimeSpan.FromMinutes (5);
 
 	/// <summary>
 	/// Initializes the Apple TV extension driver.
@@ -92,7 +92,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		VolumeControlSupported = false;
 		PowerStatusLabel = "Unknown";
 		SetStatusSummary ("Waiting for configuration");
-		ApplyAppList (Array.Empty<(string BundleId, string Name)> ());
+		ApplyAppList ([]);
 
 		TryPublishUiDefinition ();
 
@@ -100,7 +100,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		// data, so the app list is kept current here instead of relying on a user-triggered
 		// refresh button (which has been removed): every AppRefreshInterval, request a fresh
 		// app list from the bridge if a connection is currently available.
-		_appRefreshTimer = new Timer (OnAppRefreshTimerTick, null, AppRefreshInterval, AppRefreshInterval);
+		_appRefreshTimer = new Timer (OnAppRefreshTimerTick, null, _appRefreshInterval, _appRefreshInterval);
 		}
 
 	internal DataDrivenConfigurationController ConfigurationController
@@ -140,7 +140,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 				"Enter the name of the Apple TV to control.");
 			}
 
-		AppleTvStoredDevice device = AppleTvStoredDevice.LoadForName (appleTvName, AppleTvStoredDevice.VideoServerBaseModel);
+		AppleTvStoredDevice device = AppleTvStoredDevice.LoadForName (appleTvName, AppleTvStoredDevice.VIDEO_SERVER_BASE_MODEL);
 		if (device is null || string.IsNullOrWhiteSpace (device.UniqueId))
 			{
 			return new ConfigurationItemErrors (
@@ -159,7 +159,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		}
 
 	private void OnAppRefreshTimerTick (object state) =>
-		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandRefreshApps}", "automatically refresh apps");
+		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_REFRESH_APPS}", "automatically refresh apps");
 
 	private void StartConnecting (string uniqueId)
 		{
@@ -220,7 +220,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	// may be mid-reinitialization.
 	private async Task ConnectAsync (string uniqueId, CancellationToken cancellationToken)
 		{
-		int[] candidates = AppleTvBridgePort.GetPortCandidates (uniqueId).ToArray ();
+		int[] candidates = [.. AppleTvBridgePort.GetPortCandidates (uniqueId)];
 		int attempt = 0;
 		while (!cancellationToken.IsCancellationRequested)
 			{
@@ -232,7 +232,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 					return;
 					}
 
-				var client = new AppleTvBridgeClient (message => LogInformation (message));
+				var client = new AppleTvBridgeClient (LogInformation);
 				try
 					{
 					await client.ConnectAsync (port, cancellationToken).ConfigureAwait (false);
@@ -253,9 +253,9 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 					OnlineIndicatorIsOnline = true;
 					ReadyIndicatorIsReady = true;
 					SetStatusSummary ("Connected");
-					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandRefreshStatus}").ConfigureAwait (false);
+					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_REFRESH_STATUS}").ConfigureAwait (false);
 					WatchForRefreshStatusReply ();
-					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandRefreshApps}").ConfigureAwait (false);
+					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_REFRESH_APPS}").ConfigureAwait (false);
 					return;
 					}
 				catch (Exception exception)
@@ -326,7 +326,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		{
 		LogInformation ($"Bridge line received: '{line}'");
 
-		if (string.Equals (line, AppleTvBridgeProtocol.EventConnected, StringComparison.Ordinal))
+		if (string.Equals (line, AppleTvBridgeProtocol.EVENT_CONNECTED, StringComparison.Ordinal))
 			{
 			OnlineIndicatorIsOnline = true;
 			ReadyIndicatorIsReady = true;
@@ -334,7 +334,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			return;
 			}
 
-		if (string.Equals (line, AppleTvBridgeProtocol.EventDisconnected, StringComparison.Ordinal))
+		if (string.Equals (line, AppleTvBridgeProtocol.EVENT_DISCONNECTED, StringComparison.Ordinal))
 			{
 			OnlineIndicatorIsOnline = false;
 			ReadyIndicatorIsReady = false;
@@ -342,39 +342,39 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventPowerPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_POWER_PREFIX, StringComparison.Ordinal))
 			{
-			PowerIsOn = line.AsSpan (AppleTvBridgeProtocol.EventPowerPrefix.Length).Equals ("On", StringComparison.OrdinalIgnoreCase);
+			PowerIsOn = line.AsSpan (AppleTvBridgeProtocol.EVENT_POWER_PREFIX.Length).Equals ("On", StringComparison.OrdinalIgnoreCase);
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventSystemStatusPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX, StringComparison.Ordinal))
 			{
-			Interlocked.Increment (ref _refreshStatusRequestVersion);
+			_ = Interlocked.Increment (ref _refreshStatusRequestVersion);
 			// PowerStatusLabel reflects the Apple TV's own reported system status (e.g.
 			// Awake/Asleep/Idle) and is shown via its own dedicated UI binding
 			// (PowerToggle's secondarylabel). StatusSummary/TileDisplay are a distinct
 			// concept - the bridge connection status (Connected/Reconnecting/disconnected)
 			// - and must not be overwritten here.
-			PowerStatusLabel = line.Substring (AppleTvBridgeProtocol.EventSystemStatusPrefix.Length);
+			PowerStatusLabel = line[AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX.Length..];
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventVolumeSupportedPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX, StringComparison.Ordinal))
 			{
-			VolumeControlSupported = line.AsSpan (AppleTvBridgeProtocol.EventVolumeSupportedPrefix.Length).Equals ("1", StringComparison.Ordinal);
+			VolumeControlSupported = line.AsSpan (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventMutePrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX, StringComparison.Ordinal))
 			{
-			MuteIsOn = line.AsSpan (AppleTvBridgeProtocol.EventMutePrefix.Length).Equals ("1", StringComparison.Ordinal);
+			MuteIsOn = line.AsSpan (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventAppsPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_APPS_PREFIX, StringComparison.Ordinal))
 			{
-			string encoded = line.Substring (AppleTvBridgeProtocol.EventAppsPrefix.Length);
+			string encoded = line[AppleTvBridgeProtocol.EVENT_APPS_PREFIX.Length..];
 			List<(string BundleId, string Name)> apps = AppleTvBridgeProtocol.DecodeApps (encoded);
 			LogInformation ($"Decoded {apps.Count} app(s) from bridge apps event (encoded length={encoded.Length}).");
 			ApplyAppList (apps);
@@ -384,9 +384,9 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		// Mirrors AppleTv.Remote.Wpf's reactive TextInputDialog: KeyboardFocused gates the
 		// textentry control group's visibility in UiDefinition.xml, showing it only while the
 		// Apple TV's on-screen keyboard actually has focus.
-		if (line.StartsWith (AppleTvBridgeProtocol.EventKeyboardFocusPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
 			{
-			bool focused = line.AsSpan (AppleTvBridgeProtocol.EventKeyboardFocusPrefix.Length).Equals ("1", StringComparison.Ordinal);
+			bool focused = line.AsSpan (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
 			KeyboardFocused = focused;
 			// The Apple TV's on-screen keyboard is gone once it drops the text-input request, so
 			// the textentry control (and any previously-entered text) is hidden/cleared along
@@ -399,16 +399,16 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			return;
 			}
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EventTextPrefix, StringComparison.Ordinal))
+		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX, StringComparison.Ordinal))
 			{
-			string encoded = line.Substring (AppleTvBridgeProtocol.EventTextPrefix.Length);
+			string encoded = line[AppleTvBridgeProtocol.EVENT_TEXT_PREFIX.Length..];
 			ApplyKeyboardTextFromDevice (AppleTvBridgeProtocol.DecodeText (encoded));
 			}
 		}
 
 	private void ApplyAppList (IReadOnlyList<(string BundleId, string Name)> apps)
 		{
-		apps = apps.OrderBy (app => app.Name, StringComparer.CurrentCultureIgnoreCase).ToList ();
+		apps = [.. apps.OrderBy (app => app.Name, StringComparer.CurrentCultureIgnoreCase)];
 
 		lock (_stateLock)
 			{

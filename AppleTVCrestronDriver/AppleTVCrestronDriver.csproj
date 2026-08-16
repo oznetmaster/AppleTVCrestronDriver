@@ -57,8 +57,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.3" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.3" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.4" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.4" />
+		<!-- Not declared as a dependency of the AppleTVControlLibrary NuGet package (AppleTv.Hap.dll,
+			 which is bundled inside that package, references it directly), so it must be referenced
+			 here explicitly - otherwise it is never restored/copied to the build output and is missing
+			 from the MergeInputs below, causing a runtime TypeLoadException for
+			 AppleTvControlLibrary.Auth.SrpAuthHandler on the Crestron processor. Version must match the
+			 one AppleTv.Hap.csproj references. -->
+		<PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
@@ -104,14 +111,31 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
 	</Target>
 
-	<Target Name="MergeDependencies" AfterTargets="Build">
+	<Target Name="MergeDependencies" AfterTargets="Build" Inputs="$(TargetPath);@(ReferenceCopyLocalPaths)" Outputs="$(TargetDir)patched\$(AssemblyName).dll">
+		<!-- Re-copy the resolved package/reference assemblies into $(TargetDir) immediately before merging.
+			 This guards against a stale AppleTVControlLibrary*.dll (or other dependency) left over from a
+			 previous build/package version being silently picked up by ILRepack, since incremental copy-local
+			 can otherwise skip re-copying when only the referenced package version changed. -->
+		<Copy SourceFiles="@(ReferenceCopyLocalPaths)" DestinationFolder="$(TargetDir)" SkipUnchangedFiles="false" />
 		<ItemGroup>
 			<MergeInputs Include="$(TargetPath)" />
 			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.dll" />
 			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.Discovery.dll" />
+			<MergeInputs Include="$(TargetDir)AppleTv.Hap.dll" />
 			<MergeInputs Include="$(TargetDir)BouncyCastle.Cryptography.dll" />
 			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" />
 			<MergeInputs Include="$(TargetDir)plist-cil.dll" />
+			<!-- System.Memory (and its dependents System.Buffers / System.Numerics.Vectors /
+				 System.Runtime.CompilerServices.Unsafe) must be merged here, like every other
+				 dependency: the .pkg deployed to the Crestron processor only ships this single
+				 merged assembly plus its manifest, so anything not merged would be missing at
+				 runtime. Since AppleTv.Hap.dll (which defines Opack.Unpack(ReadOnlySpan<byte>, out int))
+				 is merged into this same ILRepack output, System.Memory's ReadOnlySpan<byte>
+				 type is unified into a single copy shared by all merged code - so merging it
+				 alongside AppleTv.Hap.dll (rather than leaving it external) is what keeps a
+				 single, consistent ReadOnlySpan<byte> identity. Leaving System.Memory external
+				 while AppleTv.Hap.dll was merged (the previous state) is what caused a
+				 MissingMethodException at runtime. -->
 			<MergeInputs Include="$(TargetDir)System.Buffers.dll" />
 			<MergeInputs Include="$(TargetDir)System.Memory.dll" />
 			<MergeInputs Include="$(TargetDir)System.Numerics.Vectors.dll" />

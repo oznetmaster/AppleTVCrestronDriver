@@ -42,7 +42,7 @@ public sealed class AppleTvKeyboardBridgeTests
 		MethodInfo method = typeof (FakeCompanionOpackDevice).GetMethod ("SetRtiFocusState");
 		Type enumType = method.GetParameters ()[0].ParameterType;
 		object value = Enum.Parse (enumType, focused ? "Focused" : "Unfocused");
-		method.Invoke (device, new[] { value });
+		method.Invoke (device, [value]);
 		}
 
 	[TestMethod]
@@ -62,11 +62,11 @@ public sealed class AppleTvKeyboardBridgeTests
 			var textEvent = new TaskCompletionSource<string> (TaskCreationOptions.RunContinuationsAsynchronously);
 			bridge.BridgeEventRaised += line =>
 				{
-				if (line.StartsWith (AppleTvBridgeProtocol.EventKeyboardFocusPrefix, StringComparison.Ordinal))
+				if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
 					{
 					focusEvent.TrySetResult (line);
 					}
-				else if (line.StartsWith (AppleTvBridgeProtocol.EventTextPrefix, StringComparison.Ordinal))
+				else if (line.StartsWith (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX, StringComparison.Ordinal))
 					{
 					textEvent.TrySetResult (line);
 					}
@@ -76,10 +76,10 @@ public sealed class AppleTvKeyboardBridgeTests
 			SetRtiFocusState (host.OpackDevice, focused: true);
 
 			string focusLine = await WaitAsync (focusEvent.Task).ConfigureAwait (false);
-			Assert.AreEqual (AppleTvBridgeProtocol.EventKeyboardFocusPrefix + "1", focusLine);
+			Assert.AreEqual (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX + "1", focusLine);
 
 			string textLine = await WaitAsync (textEvent.Task).ConfigureAwait (false);
-			string encoded = textLine.Substring (AppleTvBridgeProtocol.EventTextPrefix.Length);
+			string encoded = textLine[AppleTvBridgeProtocol.EVENT_TEXT_PREFIX.Length..];
 			Assert.AreEqual ("Hello", AppleTvBridgeProtocol.DecodeText (encoded));
 			}
 		finally
@@ -104,7 +104,7 @@ public sealed class AppleTvKeyboardBridgeTests
 			var focusEvent = new TaskCompletionSource<string> (TaskCreationOptions.RunContinuationsAsynchronously);
 			bridge.BridgeEventRaised += line =>
 				{
-				if (line.StartsWith (AppleTvBridgeProtocol.EventKeyboardFocusPrefix, StringComparison.Ordinal))
+				if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
 					{
 					focusEvent.TrySetResult (line);
 					}
@@ -113,7 +113,7 @@ public sealed class AppleTvKeyboardBridgeTests
 			SetRtiFocusState (host.OpackDevice, focused: false);
 
 			string focusLine = await WaitAsync (focusEvent.Task).ConfigureAwait (false);
-			Assert.AreEqual (AppleTvBridgeProtocol.EventKeyboardFocusPrefix + "0", focusLine);
+			Assert.AreEqual (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX + "0", focusLine);
 			}
 		finally
 			{

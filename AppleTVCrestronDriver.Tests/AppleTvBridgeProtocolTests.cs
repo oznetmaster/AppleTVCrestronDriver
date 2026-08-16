@@ -23,7 +23,7 @@ public sealed class AppleTvBridgeProtocolTests
 	[TestMethod]
 	public void EncodeApps_EmptyList_ReturnsEmptyString ()
 		{
-		string encoded = AppleTvBridgeProtocol.EncodeApps (new List<(string BundleId, string Name)> ());
+		string encoded = AppleTvBridgeProtocol.EncodeApps ([]);
 
 		Assert.AreEqual (string.Empty, encoded);
 		}

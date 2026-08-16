@@ -18,7 +18,7 @@ internal sealed class AppleTvStoredDevice
 	// isolated credential storage - see SharedStorage/CrestronCredentialFileStore) uses this
 	// constant purely to look up the video server's UniqueId for a given Apple TV name so it can
 	// compute the same bridge port candidates, never to read or reuse its pairing credentials.
-	internal const string VideoServerBaseModel = "Apple TV Companion";
+	internal const string VIDEO_SERVER_BASE_MODEL = "Apple TV Companion";
 
 	public string Address { get; set; } = string.Empty;
 

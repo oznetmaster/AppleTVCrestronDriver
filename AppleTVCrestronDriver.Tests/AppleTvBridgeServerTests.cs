@@ -86,11 +86,11 @@ public sealed class AppleTvBridgeServerTests
 		await client.ConnectAsync (IPAddress.Loopback, port).ConfigureAwait (false);
 		await WaitUntilAsync (() => server.ConnectedClientCountForTests > 0).ConfigureAwait (false);
 
-		string appsToken = AppleTvBridgeProtocol.EncodeApps (new[] { ("com.apple.tv", "Apple TV") });
-		server.BroadcastEvent (AppleTvBridgeProtocol.EventAppsPrefix + appsToken);
+		string appsToken = AppleTvBridgeProtocol.EncodeApps ([("com.apple.tv", "Apple TV")]);
+		server.BroadcastEvent (AppleTvBridgeProtocol.EVENT_APPS_PREFIX + appsToken);
 
 		string line = await ReadLineAsync (client).ConfigureAwait (false);
-		Assert.AreEqual (AppleTvBridgeProtocol.EventAppsPrefix + appsToken, line);
+		Assert.AreEqual (AppleTvBridgeProtocol.EVENT_APPS_PREFIX + appsToken, line);
 		}
 
 	// Regression tests for AppleTvBridgeServerHandlerRegistration: a stale-handler race between
@@ -178,7 +178,7 @@ public sealed class AppleTvBridgeServerTests
 		try
 			{
 			int fallback = GetFreeLoopbackPort ();
-			using AppleTvBridgeServer server = AppleTvBridgeServer.StartFirstAvailable (new[] { taken, fallback }, log: null);
+			using AppleTvBridgeServer server = AppleTvBridgeServer.StartFirstAvailable ([taken, fallback], log: null);
 
 			Assert.AreEqual (fallback, server.Port);
 			}
@@ -199,7 +199,7 @@ public sealed class AppleTvBridgeServerTests
 		secondBlocker.Start ();
 		try
 			{
-			_ = Assert.ThrowsExactly<SocketException> (() => AppleTvBridgeServer.StartFirstAvailable (new[] { first, second }, log: null));
+			_ = Assert.ThrowsExactly<SocketException> (() => AppleTvBridgeServer.StartFirstAvailable ([first, second], log: null));
 			}
 		finally
 			{

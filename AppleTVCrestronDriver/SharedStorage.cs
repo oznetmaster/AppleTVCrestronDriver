@@ -71,7 +71,7 @@ internal static class SharedStorage
 			return "default";
 			}
 
-		char[] chars = baseModel.Trim ().Select (c => char.IsLetterOrDigit (c) ? char.ToLowerInvariant (c) : '-').ToArray ();
+		char[] chars = [.. baseModel.Trim ().Select (c => char.IsLetterOrDigit (c) ? char.ToLowerInvariant (c) : '-')];
 		string name = new string (chars);
 
 		while (name.Contains ("--"))

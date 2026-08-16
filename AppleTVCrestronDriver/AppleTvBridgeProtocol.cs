@@ -34,27 +34,27 @@ internal static class AppleTvBridgeProtocol
 	private const char RECORD_SEPARATOR = '\u001E';
 	private const char UNIT_SEPARATOR = '\u001F';
 
-	internal const string CommandHid = "HID";
-	internal const string CommandMedia = "MEDIA";
-	internal const string CommandArrow = "ARROW";
-	internal const string CommandArrowDown = "ARROWDOWN";
-	internal const string CommandArrowUp = "ARROWUP";
-	internal const string CommandPower = "POWER";
-	internal const string CommandLaunch = "LAUNCH";
-	internal const string CommandRefreshApps = "REFRESHAPPS";
-	internal const string CommandRefreshStatus = "REFRESHSTATUS";
-	internal const string CommandMute = "MUTE";
-	internal const string CommandSetText = "SETTEXT";
+	internal const string COMMAND_HID = "HID";
+	internal const string COMMAND_MEDIA = "MEDIA";
+	internal const string COMMAND_ARROW = "ARROW";
+	internal const string COMMAND_ARROW_DOWN = "ARROWDOWN";
+	internal const string COMMAND_ARROW_UP = "ARROWUP";
+	internal const string COMMAND_POWER = "POWER";
+	internal const string COMMAND_LAUNCH = "LAUNCH";
+	internal const string COMMAND_REFRESH_APPS = "REFRESHAPPS";
+	internal const string COMMAND_REFRESH_STATUS = "REFRESHSTATUS";
+	internal const string COMMAND_MUTE = "MUTE";
+	internal const string COMMAND_SET_TEXT = "SETTEXT";
 
-	internal const string EventConnected = "EVT:CONNECTED";
-	internal const string EventDisconnected = "EVT:DISCONNECTED";
-	internal const string EventPowerPrefix = "EVT:POWER:";
-	internal const string EventSystemStatusPrefix = "EVT:SYSSTATUS:";
-	internal const string EventVolumeSupportedPrefix = "EVT:VOLSUPPORTED:";
-	internal const string EventMutePrefix = "EVT:MUTE:";
-	internal const string EventAppsPrefix = "EVT:APPS:";
-	internal const string EventKeyboardFocusPrefix = "EVT:KBFOCUS:";
-	internal const string EventTextPrefix = "EVT:TEXT:";
+	internal const string EVENT_CONNECTED = "EVT:CONNECTED";
+	internal const string EVENT_DISCONNECTED = "EVT:DISCONNECTED";
+	internal const string EVENT_POWER_PREFIX = "EVT:POWER:";
+	internal const string EVENT_SYSTEM_STATUS_PREFIX = "EVT:SYSSTATUS:";
+	internal const string EVENT_VOLUME_SUPPORTED_PREFIX = "EVT:VOLSUPPORTED:";
+	internal const string EVENT_MUTE_PREFIX = "EVT:MUTE:";
+	internal const string EVENT_APPS_PREFIX = "EVT:APPS:";
+	internal const string EVENT_KEYBOARD_FOCUS_PREFIX = "EVT:KBFOCUS:";
+	internal const string EVENT_TEXT_PREFIX = "EVT:TEXT:";
 
 	/// <summary>
 	/// Encodes an app list (bundle id/display name pairs) as a single token safe to place after
@@ -95,9 +95,16 @@ internal static class AppleTvBridgeProtocol
 			return result;
 			}
 
-		string[] records = encoded.Split (RECORD_SEPARATOR);
-		foreach (string record in records)
+		// Enumerate records directly over spans of the original string rather than allocating an
+		// intermediate string[] via Split (and a substring per record); only the final bundleId/name
+		// values need to become actual strings.
+		ReadOnlySpan<char> remaining = encoded;
+		while (!remaining.IsEmpty)
 			{
+			int recordSeparatorIndex = remaining.IndexOf (RECORD_SEPARATOR);
+			ReadOnlySpan<char> record = recordSeparatorIndex < 0 ? remaining : remaining[..recordSeparatorIndex];
+			remaining = recordSeparatorIndex < 0 ? [] : remaining[(recordSeparatorIndex + 1)..];
+
 			if (record.Length == 0)
 				{
 				continue;
@@ -109,8 +116,8 @@ internal static class AppleTvBridgeProtocol
 				continue;
 				}
 
-			string bundleId = record.Substring (0, separatorIndex);
-			string name = record.Substring (separatorIndex + 1);
+			string bundleId = record[..separatorIndex].ToString ();
+			string name = record[(separatorIndex + 1)..].ToString ();
 			result.Add ((bundleId, name));
 			}
 
@@ -124,12 +131,7 @@ internal static class AppleTvBridgeProtocol
 	/// </summary>
 	internal static string EncodeText (string text)
 		{
-		if (string.IsNullOrEmpty (text))
-			{
-			return string.Empty;
-			}
-
-		return Convert.ToBase64String (Encoding.UTF8.GetBytes (text));
+		return string.IsNullOrEmpty (text) ? string.Empty : Convert.ToBase64String (Encoding.UTF8.GetBytes (text));
 		}
 
 	/// <summary>

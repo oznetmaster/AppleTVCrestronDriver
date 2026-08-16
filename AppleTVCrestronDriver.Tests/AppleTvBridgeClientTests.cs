@@ -63,11 +63,11 @@ public sealed class AppleTvBridgeClientTests
 		await client.ConnectAsync (port, CancellationToken.None).ConfigureAwait (false);
 		await WaitUntilAsync (() => server.ConnectedClientCountForTests > 0).ConfigureAwait (false);
 
-		server.BroadcastEvent (AppleTvBridgeProtocol.EventPowerPrefix + "On");
+		server.BroadcastEvent (AppleTvBridgeProtocol.EVENT_POWER_PREFIX + "On");
 
 		Task completed = await Task.WhenAny (received.Task, Task.Delay (TimeSpan.FromSeconds (5))).ConfigureAwait (false);
 		Assert.AreSame (received.Task, completed, "Expected the client to receive the broadcast event line.");
-		Assert.AreEqual (AppleTvBridgeProtocol.EventPowerPrefix + "On", received.Task.Result);
+		Assert.AreEqual (AppleTvBridgeProtocol.EVENT_POWER_PREFIX + "On", received.Task.Result);
 		}
 
 	[TestMethod]
@@ -82,14 +82,14 @@ public sealed class AppleTvBridgeClientTests
 		await client.ConnectAsync (port, CancellationToken.None).ConfigureAwait (false);
 		await WaitUntilAsync (() => server.ConnectedClientCountForTests > 0).ConfigureAwait (false);
 
-		string appsToken = AppleTvBridgeProtocol.EncodeApps (new[] { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") });
-		server.BroadcastEvent (AppleTvBridgeProtocol.EventAppsPrefix + appsToken);
+		string appsToken = AppleTvBridgeProtocol.EncodeApps ([("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix")]);
+		server.BroadcastEvent (AppleTvBridgeProtocol.EVENT_APPS_PREFIX + appsToken);
 
 		Task completed = await Task.WhenAny (received.Task, Task.Delay (TimeSpan.FromSeconds (5))).ConfigureAwait (false);
 		Assert.AreSame (received.Task, completed);
 		string line = received.Task.Result;
-		Assert.IsTrue (line.StartsWith (AppleTvBridgeProtocol.EventAppsPrefix, StringComparison.Ordinal));
-		var decoded = AppleTvBridgeProtocol.DecodeApps (line.Substring (AppleTvBridgeProtocol.EventAppsPrefix.Length));
+		Assert.IsTrue (line.StartsWith (AppleTvBridgeProtocol.EVENT_APPS_PREFIX, StringComparison.Ordinal));
+		var decoded = AppleTvBridgeProtocol.DecodeApps (line[AppleTvBridgeProtocol.EVENT_APPS_PREFIX.Length..]);
 		Assert.AreEqual (2, decoded.Count);
 		Assert.AreEqual ("com.apple.tv", decoded[0].BundleId);
 		Assert.AreEqual ("Netflix", decoded[1].Name);

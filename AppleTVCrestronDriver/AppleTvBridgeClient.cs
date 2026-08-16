@@ -111,13 +111,13 @@ internal sealed class AppleTvBridgeClient : IDisposable
 					break;
 					}
 
-				lineBuilder.Append (Encoding.UTF8.GetString (buffer, 0, read));
+				_ = lineBuilder.Append (Encoding.UTF8.GetString (buffer, 0, read));
 
 				int newlineIndex;
 				while ((newlineIndex = lineBuilder.ToString ().IndexOf ('\n')) >= 0)
 					{
 					string line = lineBuilder.ToString (0, newlineIndex).TrimEnd ('\r');
-					lineBuilder.Remove (0, newlineIndex + 1);
+					_ = lineBuilder.Remove (0, newlineIndex + 1);
 					if (!string.IsNullOrWhiteSpace (line))
 						{
 						try

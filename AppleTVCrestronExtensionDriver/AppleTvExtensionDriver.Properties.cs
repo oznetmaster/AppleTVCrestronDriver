@@ -179,7 +179,7 @@ public sealed partial class AppleTvExtensionDriver
 
 			if (!_suppressKeyboardTextForward)
 				{
-				_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandSetText}:{AppleTvBridgeProtocol.EncodeText (value ?? string.Empty)}", "set keyboard text");
+				_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_SET_TEXT}:{AppleTvBridgeProtocol.EncodeText (value ?? string.Empty)}", "set keyboard text");
 				}
 			}
 		}

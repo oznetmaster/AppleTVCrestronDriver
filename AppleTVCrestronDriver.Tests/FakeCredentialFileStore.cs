@@ -15,9 +15,9 @@ namespace AppleTVCrestronDriver.Tests;
 /// </summary>
 internal sealed class FakeCredentialFileStore : ICredentialFileStore
 	{
-	private readonly Dictionary<string, byte[]> _entries = new ();
+	private readonly Dictionary<string, byte[]> _entries = [];
 
-	public IEnumerable<string> EnumerateEntries () => _entries.Keys.ToList ();
+	public IEnumerable<string> EnumerateEntries () => [.. _entries.Keys];
 
 	public Stream OpenRead (string entryId) => new MemoryStream (_entries[entryId], writable: false);
 

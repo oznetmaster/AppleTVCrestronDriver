@@ -43,41 +43,41 @@ public sealed partial class AppleTvExtensionDriver
 
 		string appName = _apps.FirstOrDefault (app => string.Equals (app.BundleId, bundleId, StringComparison.Ordinal)).Name ?? bundleId;
 		SelectedAppName = appName;
-		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandLaunch}:{bundleId}", "launch app " + appName);
+		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_LAUNCH}:{bundleId}", "launch app " + appName);
 		}
 
 	/// <summary>Turns the Apple TV on or off in response to the power toggle.</summary>
 	[EntityCommand (Id = "setPowerIsOn")]
 	[EntityCommandMetadata (Programmable = true)]
 	public void SetPowerIsOn ([EntityParameter] bool value) =>
-		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandPower}:{(value ? "On" : "Off")}", "power " + (value ? "on" : "off"));
+		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_POWER}:{(value ? "On" : "Off")}", "power " + (value ? "on" : "off"));
 
 	// Not marked Programmable: pure navigation whose effect depends entirely on whatever is
 	// currently on-screen, so it has no deterministic meaning in an unattended sequence or
 	// conditional - these remain usable only via the live UI's dpad/buttongroup bindings.
 	/// <summary>Presses and releases the Up arrow.</summary>
 	[EntityCommand (Id = "arrowUp")]
-	public void ArrowUp () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandArrow}:Up", "arrow up");
+	public void ArrowUp () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_ARROW}:Up", "arrow up");
 
 	/// <summary>Presses and releases the Down arrow.</summary>
 	[EntityCommand (Id = "arrowDown")]
-	public void ArrowDown () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandArrow}:Down", "arrow down");
+	public void ArrowDown () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_ARROW}:Down", "arrow down");
 
 	/// <summary>Presses and releases the Left arrow.</summary>
 	[EntityCommand (Id = "arrowLeft")]
-	public void ArrowLeft () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandArrow}:Left", "arrow left");
+	public void ArrowLeft () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_ARROW}:Left", "arrow left");
 
 	/// <summary>Presses and releases the Right arrow.</summary>
 	[EntityCommand (Id = "arrowRight")]
-	public void ArrowRight () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandArrow}:Right", "arrow right");
+	public void ArrowRight () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_ARROW}:Right", "arrow right");
 
 	/// <summary>Sends Select.</summary>
 	[EntityCommand (Id = "select")]
-	public void Select () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:Select", "select");
+	public void Select () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:Select", "select");
 
 	/// <summary>Sends Menu/Back.</summary>
 	[EntityCommand (Id = "menu")]
-	public void Menu () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:Menu", "menu");
+	public void Menu () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:Menu", "menu");
 
 	/// <summary>Sends Home, and resets the app launcher selector back to its default text.</summary>
 	[EntityCommand (Id = "home")]
@@ -86,47 +86,47 @@ public sealed partial class AppleTvExtensionDriver
 		{
 		SelectedApp = string.Empty;
 		SelectedAppName = string.Empty;
-		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:Home", "home");
+		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:Home", "home");
 		}
 
 	/// <summary>Sends Play/Pause.</summary>
 	[EntityCommand (Id = "playPause")]
 	[EntityCommandMetadata (Programmable = true)]
-	public void PlayPause () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:PlayPause", "play/pause");
+	public void PlayPause () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:PlayPause", "play/pause");
 
 	// Not marked Programmable: only a *Begin command is sent, with no corresponding stop/end
 	// command exposed as an EntityCommand, so a sequence invoking these would have no
 	// programmable way to ever stop the scan.
 	/// <summary>Starts rewinding (fast reverse) playback.</summary>
 	[EntityCommand (Id = "rewind")]
-	public void Rewind () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandMedia}:RewindBegin", "rewind");
+	public void Rewind () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_MEDIA}:RewindBegin", "rewind");
 
 	/// <summary>Starts fast-forwarding playback.</summary>
 	[EntityCommand (Id = "fastForward")]
-	public void FastForward () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandMedia}:FastForwardBegin", "fast forward");
+	public void FastForward () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_MEDIA}:FastForwardBegin", "fast forward");
 
 	/// <summary>Skips to the previous track/chapter.</summary>
 	[EntityCommand (Id = "reverseSkip")]
-	public void ReverseSkip () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandMedia}:PreviousTrack", "reverse skip");
+	public void ReverseSkip () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_MEDIA}:PreviousTrack", "reverse skip");
 
 	/// <summary>Skips to the next track/chapter.</summary>
 	[EntityCommand (Id = "forwardSkip")]
-	public void ForwardSkip () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandMedia}:NextTrack", "forward skip");
+	public void ForwardSkip () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_MEDIA}:NextTrack", "forward skip");
 
 	/// <summary>Raises the volume, when supported by the paired Apple TV.</summary>
 	[EntityCommand (Id = "volumeUp")]
 	[EntityCommandMetadata (Programmable = true)]
-	public void VolumeUp () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:VolumeUp", "volume up");
+	public void VolumeUp () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:VolumeUp", "volume up");
 
 	/// <summary>Lowers the volume, when supported by the paired Apple TV.</summary>
 	[EntityCommand (Id = "volumeDown")]
 	[EntityCommandMetadata (Programmable = true)]
-	public void VolumeDown () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandHid}:VolumeDown", "volume down");
+	public void VolumeDown () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_HID}:VolumeDown", "volume down");
 
 	/// <summary>Toggles mute, when supported by the paired Apple TV.</summary>
 	[EntityCommand (Id = "toggleMute")]
 	[EntityCommandMetadata (Programmable = true)]
-	public void ToggleMute () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.CommandMute}:Toggle", "toggle mute");
+	public void ToggleMute () => _ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_MUTE}:Toggle", "toggle mute");
 
 	/// <summary>
 	/// Handles Crestron Home's two-way <c>textentry</c> binding (value="{keyboardText}"): invoked

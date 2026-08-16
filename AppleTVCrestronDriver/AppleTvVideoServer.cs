@@ -332,13 +332,13 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			{
 			LogDiagnostic ("Companion Link session disconnected unexpectedly; attempting to reconnect.");
 			TimeSpan[] retryDelays =
-				{
+				[
 				TimeSpan.FromSeconds (2),
 				TimeSpan.FromSeconds (5),
 				TimeSpan.FromSeconds (10),
 				TimeSpan.FromSeconds (20),
 				TimeSpan.FromSeconds (30),
-				};
+				];
 
 			for (int attempt = 1; attempt <= retryDelays.Length; attempt++)
 				{
@@ -493,6 +493,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 						{
 						SetDiscoveredUnpairedStatus (device.Name);
 						}
+
 					LogDiagnostic ($"Initialized device settings from the shared record for '{device.Name}'.");
 					}
 				else
@@ -851,7 +852,6 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			_ = session.Gate.Release ();
 			}
 		}
-
 
 	private async Task ConnectCompanionAsync (AppleTvVideoServerProtocol protocol, AppleTvStoredDevice device, string address, int port)
 		{
