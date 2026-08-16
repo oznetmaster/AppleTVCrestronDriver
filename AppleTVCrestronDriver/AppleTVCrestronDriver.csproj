@@ -57,8 +57,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="1.1.4" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="1.1.4" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.3" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.3" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
@@ -66,6 +66,7 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="AppleTVCrestronDriver.json" />

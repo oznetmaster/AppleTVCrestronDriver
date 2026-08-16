@@ -8,6 +8,14 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
+## [1.3.2] - 2026-08-16
+
+### Changed
+
+- Bridge-event parsing for boolean-only events (power, mute, volume-supported,
+  keyboard-focus) now uses span-based comparisons instead of allocating a substring per event.
+  This is a minor efficiency improvement only; no functional change.
+
 ## [1.3.1] - 2026-08-13
 
 ### Changed

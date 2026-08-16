@@ -344,7 +344,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 		if (line.StartsWith (AppleTvBridgeProtocol.EventPowerPrefix, StringComparison.Ordinal))
 			{
-			PowerIsOn = string.Equals (line.Substring (AppleTvBridgeProtocol.EventPowerPrefix.Length), "On", StringComparison.OrdinalIgnoreCase);
+			PowerIsOn = line.AsSpan (AppleTvBridgeProtocol.EventPowerPrefix.Length).Equals ("On", StringComparison.OrdinalIgnoreCase);
 			return;
 			}
 
@@ -362,13 +362,13 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 		if (line.StartsWith (AppleTvBridgeProtocol.EventVolumeSupportedPrefix, StringComparison.Ordinal))
 			{
-			VolumeControlSupported = string.Equals (line.Substring (AppleTvBridgeProtocol.EventVolumeSupportedPrefix.Length), "1", StringComparison.Ordinal);
+			VolumeControlSupported = line.AsSpan (AppleTvBridgeProtocol.EventVolumeSupportedPrefix.Length).Equals ("1", StringComparison.Ordinal);
 			return;
 			}
 
 		if (line.StartsWith (AppleTvBridgeProtocol.EventMutePrefix, StringComparison.Ordinal))
 			{
-			MuteIsOn = string.Equals (line.Substring (AppleTvBridgeProtocol.EventMutePrefix.Length), "1", StringComparison.Ordinal);
+			MuteIsOn = line.AsSpan (AppleTvBridgeProtocol.EventMutePrefix.Length).Equals ("1", StringComparison.Ordinal);
 			return;
 			}
 
@@ -386,7 +386,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		// Apple TV's on-screen keyboard actually has focus.
 		if (line.StartsWith (AppleTvBridgeProtocol.EventKeyboardFocusPrefix, StringComparison.Ordinal))
 			{
-			bool focused = string.Equals (line.Substring (AppleTvBridgeProtocol.EventKeyboardFocusPrefix.Length), "1", StringComparison.Ordinal);
+			bool focused = line.AsSpan (AppleTvBridgeProtocol.EventKeyboardFocusPrefix.Length).Equals ("1", StringComparison.Ordinal);
 			KeyboardFocused = focused;
 			// The Apple TV's on-screen keyboard is gone once it drops the text-input request, so
 			// the textentry control (and any previously-entered text) is hidden/cleared along

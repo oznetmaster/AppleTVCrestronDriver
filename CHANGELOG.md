@@ -9,6 +9,15 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [1.3.2] - 2026-08-16
+
+### Changed
+
+- Extension driver bridge-event parsing now uses span-based comparisons (`AsSpan(...)` +
+  `MemoryExtensions.Equals(...)`) instead of `Substring(...)` + `string.Equals(...)` for
+  boolean-only events (power, mute, volume-supported, keyboard-focus), avoiding a per-event
+  string allocation. No functional or behavioral change.
+
 ## [1.3.1] - 2026-08-13
 
 ### Changed
