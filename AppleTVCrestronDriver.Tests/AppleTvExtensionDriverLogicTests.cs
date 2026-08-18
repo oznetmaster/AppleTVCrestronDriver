@@ -160,15 +160,15 @@ public sealed class AppleTvExtensionDriverLogicTests
 		}
 
 	[TestMethod]
-	public void DetermineSelection_CurrentSelectionMissing_SelectsFirstApp ()
+	public void DetermineSelection_CurrentSelectionMissing_ClearsSelection ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };
 
 		(bool shouldChange, string bundleId, string name) = AppleTvExtensionDriverLogic.DetermineSelection (apps, "com.missing.App");
 
 		Assert.IsTrue (shouldChange);
-		Assert.AreEqual ("com.apple.tv", bundleId);
-		Assert.AreEqual ("Apple TV", name);
+		Assert.AreEqual (string.Empty, bundleId);
+		Assert.AreEqual (string.Empty, name);
 		}
 
 	[TestMethod]
@@ -181,5 +181,17 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsTrue (shouldChange);
 		Assert.AreEqual (string.Empty, bundleId);
 		Assert.AreEqual (string.Empty, name);
+		}
+
+	[TestMethod]
+	public void DetermineSelection_NoCurrentSelection_DoesNotAutoSelectFirstApp ()
+		{
+		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };
+
+		(bool shouldChange, string bundleId, string name) = AppleTvExtensionDriverLogic.DetermineSelection (apps, string.Empty);
+
+		Assert.IsFalse (shouldChange);
+		Assert.IsNull (bundleId);
+		Assert.IsNull (name);
 		}
 	}

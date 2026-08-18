@@ -92,6 +92,14 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		VolumeControlSupported = false;
 		PowerStatusLabel = "Unknown";
 		SetStatusSummary ("Waiting for configuration");
+		// SelectedApp/SelectedAppName's backing fields default to null, and DetermineSelection
+		// (invoked from ApplyAppList below) now leaves an already-empty/null selection alone
+		// rather than unconditionally re-publishing it, so these must be explicitly initialized
+		// here to ensure SelectedAppName's setter actually runs at least once and publishes its
+		// "^launchApplication" translation-key fallback instead of leaving the UI's bound label
+		// unset.
+		SelectedApp = string.Empty;
+		SelectedAppName = string.Empty;
 		ApplyAppList ([]);
 
 		TryPublishUiDefinition ();

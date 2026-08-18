@@ -139,16 +139,24 @@ public static class AppleTvExtensionDriverLogic
 	/// app list and the currently selected bundle ID, without mutating any state. Returns
 	/// <see langword="null"/> selection values when the current selection should be left as-is.
 	/// </summary>
+	/// <remarks>
+	/// Never picks an app on the current selection's behalf: an empty <paramref name="currentSelectedBundleId"/>
+	/// (the Home/no-selection state - e.g. right after <c>Home()</c> clears it, or right after a driver
+	/// reboot/reload) is left cleared even once an app list arrives, rather than defaulting to the first
+	/// app in the list. The selection is only cleared (never guessed) when a *previously selected* app is
+	/// no longer present in the list (e.g. it was uninstalled), so a periodic app-list refresh can never
+	/// resurrect a stale selection or silently undo what Home just cleared.
+	/// </remarks>
 	public static (bool ShouldChange, string BundleId, string Name) DetermineSelection (
 		IReadOnlyList<(string BundleId, string Name)> apps,
 		string currentSelectedBundleId)
 		{
-		if (apps.Count > 0 && !apps.Any (app => string.Equals (app.BundleId, currentSelectedBundleId, StringComparison.Ordinal)))
+		if (string.IsNullOrEmpty (currentSelectedBundleId))
 			{
-			return (true, apps[0].BundleId, apps[0].Name);
+			return (false, null, null);
 			}
 
-		if (apps.Count == 0)
+		if (apps.Count == 0 || !apps.Any (app => string.Equals (app.BundleId, currentSelectedBundleId, StringComparison.Ordinal)))
 			{
 			return (true, string.Empty, string.Empty);
 			}

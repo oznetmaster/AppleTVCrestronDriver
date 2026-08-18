@@ -9,6 +9,19 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [1.4.1] - 2026-08-18
+
+### Fixed
+
+- Extension driver's app-selector no longer re-selects (or appears to "stick" on) a previously
+  launched app after a periodic app-list refresh, a bridge reconnect, or a driver reload: the
+  refresh logic was unconditionally defaulting to the first app in the list whenever the current
+  selection (including an intentionally empty/no-selection state) wasn't found, effectively
+  undoing what Home just cleared and making an old selection look "persisted" across reboots.
+- Fixed the app-selector label incorrectly showing a blank "-" instead of the "Launch
+  Application" placeholder text on driver startup, caused by a related change that stopped the
+  Selected App properties from being initialized.
+
 ## [1.4.0] - 2026-08-17
 
 ### Changed
