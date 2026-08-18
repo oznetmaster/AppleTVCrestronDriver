@@ -106,13 +106,23 @@ jobs:
         shell: pwsh
         env:
           RELEASE_BODY: ${{ github.event.release.body }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
           # Reuses the published GitHub Release's description as the NuGet package's release notes, so the
-          # two stay in sync without duplicating the text. Only populated for an actual "release" event;
-          # a manual workflow_dispatch run has no release body, so the NuGet package simply omits notes.
+          # two stay in sync without duplicating the text. For an actual "release" event this comes directly
+          # from the event payload. A manual workflow_dispatch run has no release body in its event payload,
+          # so instead look up the existing GitHub Release for the ref it was run against (e.g. a tag like
+          # v1.4.1) via the API and reuse its body; if no such release exists (e.g. run against a branch),
+          # the NuGet package simply omits notes.
+          $notes = $env:RELEASE_BODY
+          if ([string]::IsNullOrWhiteSpace($notes)) {
+            $notes = gh release view $env:GITHUB_REF_NAME --json body --jq '.body' 2>$null
+          }
+
           $notesPath = Join-Path $env:RUNNER_TEMP 'release-notes.txt'
-          if (-not [string]::IsNullOrWhiteSpace($env:RELEASE_BODY)) {
-            Set-Content -Path $notesPath -Value $env:RELEASE_BODY -Encoding UTF8 -NoNewline
+          if (-not [string]::IsNullOrWhiteSpace($notes)) {
+            Set-Content -Path $notesPath -Value $notes -Encoding UTF8 -NoNewline
             "path=$notesPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
           else {
