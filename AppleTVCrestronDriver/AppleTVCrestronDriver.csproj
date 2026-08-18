@@ -72,13 +72,6 @@
 	<ItemGroup>
 		<PackageReference Include="AppleTVControlLibrary" Version="2.2.5" />
 		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.5" />
-		<!-- Not declared as a dependency of the AppleTVControlLibrary NuGet package (AppleTv.Hap.dll,
-			 which is bundled inside that package, references it directly), so it must be referenced
-			 here explicitly - otherwise it is never restored/copied to the build output and is missing
-			 from the MergeInputs below, causing a runtime TypeLoadException for
-			 AppleTvControlLibrary.Auth.SrpAuthHandler on the Crestron processor. Version must match the
-			 one AppleTv.Hap.csproj references. -->
-		<PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<!-- When UseAlternateSdkBuild=true (set via ProjectReference Properties metadata from a private,
 			 non-published test project), the real Crestron.SimplSharp.SDK.Library package is swapped for
