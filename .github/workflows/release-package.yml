@@ -329,9 +329,14 @@ jobs:
           if-no-files-found: error
 
       - name: Upload package assets
+        # Only attach assets to an actual GitHub Release, not a manual workflow_dispatch run: for
+        # workflow_dispatch, github.event.release.tag_name is empty and github.ref_name falls back to
+        # the branch/ref the workflow was triggered against (e.g. "main"), which would otherwise cause
+        # softprops/action-gh-release to create/target a bogus release tagged after that branch.
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.event.release.tag_name || github.ref_name }}
+          tag_name: ${{ github.event.release.tag_name }}
           files: |
             ${{ steps.package.outputs.pkg_path }}
             ${{ steps.extension_package.outputs.pkg_path }}
