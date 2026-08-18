@@ -70,8 +70,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.4" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.4" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.5" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.5" />
 		<!-- Not declared as a dependency of the AppleTVControlLibrary NuGet package (AppleTv.Hap.dll,
 			 which is bundled inside that package, references it directly), so it must be referenced
 			 here explicitly - otherwise it is never restored/copied to the build output and is missing

@@ -49,7 +49,7 @@
 			"Guid": "725C8A9E-1A85-4FC2-9B95-D20A488A4762",
 			"DeviceType": "Video Server",
 			"Manufacturer": "Apple",
-			"VersionDate": "2026-08-18 06:18:32.303",
+			"VersionDate": "2026-08-18 07:06:32.240",
 			"Developer": {
 				"PhoneNumber": "",
 				"Contact": "Neil Colvin",
@@ -57,7 +57,7 @@
 				"Email": "",
 				"Company": "Neil Colvin"
 			},
-			"DriverVersion": "1.4.001.0001",
+			"DriverVersion": "1.4.001.0008",
 			"DependencyGroup": "",
 			"SupportedModels": ["Apple TV Companion"]
 		},

@@ -29,14 +29,16 @@
 		<PackageReference Include="MSTest.TestFramework" Version="4.3.3" />
 		<!-- AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary.Discovery into its own output
 			 assembly (see MergeDependencies below), so this project already sees types like
-			 CompanionDiscoveryResult as part of the driver assembly. Unlike AppleTVControlLibrary
-			 (whose package has no compile-time assembly of its own), AppleTVControlLibrary.Discovery
-			 ships an actual lib/net472 assembly, and MSBuild otherwise still flows that PackageReference
-			 transitively from the driver project even with DisableTransitiveProjectReferences above (which
-			 only suppresses transitive ProjectReferences, not PackageReferences). Without excluding its
-			 compile assets here, both the driver assembly and the original library assembly define
-			 CompanionDiscoveryResult, and using it here becomes ambiguous (CS0433). -->
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.4" ExcludeAssets="compile" />
+			 CompanionDiscoveryResult as part of the driver assembly. Unlike some packages, both
+			 AppleTVControlLibrary and AppleTVControlLibrary.Discovery ship actual lib/net472 assemblies,
+			 and MSBuild otherwise still flows those PackageReferences transitively from the driver
+			 project even with DisableTransitiveProjectReferences above (which only suppresses transitive
+			 ProjectReferences, not PackageReferences). Without excluding their compile assets here, both
+			 the driver assembly and the original library assemblies define the same types (e.g.
+			 CompanionDiscoveryResult, HapCredentials since AppleTVControlLibrary's package bundles
+			 AppleTv.Hap.dll too), and using them here becomes ambiguous (CS0433). -->
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.5" ExcludeAssets="compile" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.5" ExcludeAssets="compile" />
 	</ItemGroup>
 
 	<ItemGroup>
