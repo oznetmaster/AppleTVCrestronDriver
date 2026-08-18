@@ -27,10 +27,33 @@
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
 		<PackageReference Include="MSTest.TestAdapter" Version="4.3.3" />
 		<PackageReference Include="MSTest.TestFramework" Version="4.3.3" />
+		<!-- AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary.Discovery into its own output
+			 assembly (see MergeDependencies below), so this project already sees types like
+			 CompanionDiscoveryResult as part of the driver assembly. Unlike AppleTVControlLibrary
+			 (whose package has no compile-time assembly of its own), AppleTVControlLibrary.Discovery
+			 ships an actual lib/net472 assembly, and MSBuild otherwise still flows that PackageReference
+			 transitively from the driver project even with DisableTransitiveProjectReferences above (which
+			 only suppresses transitive ProjectReferences, not PackageReferences). Without excluding its
+			 compile assets here, both the driver assembly and the original library assembly define
+			 CompanionDiscoveryResult, and using it here becomes ambiguous (CS0433). -->
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.4" ExcludeAssets="compile" />
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" />
+		<!-- This project is the public/publishable test suite: it builds AppleTVCrestronDriver
+			 against the real Crestron.DeviceDrivers.DevKit/Crestron.SimplSharp.SDK.Library
+			 packages (the default configuration - no Properties override needed). Anything that
+			 needs an alternate SDK test double lives in a separate, non-public sibling project
+			 instead, which is intentionally never referenced from this pushed project file.
+
+			 DeployAfterBuild=false is forced on both driver ProjectReferences below: both
+			 AppleTVCrestronDriver.csproj and AppleTVCrestronExtensionDriver.csproj have a
+			 DeployDriver target that runs after every Debug build when DeployAfterBuild=true and
+			 CrestronHomeIP is set - which .Local.targets/.csproj.user default to on a dev machine
+			 set up for F5 deploys. Without this override, simply building this test project would
+			 package and deploy both drivers to the real Crestron Home processor. -->
+		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" Properties="DeployAfterBuild=false" />
+		<ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" Properties="DeployAfterBuild=false" />
 
 		<!--
 			AppleTVControlLibrary's own test suite ships a reusable in-memory fake Companion
@@ -42,6 +65,19 @@
 			otherwise define HapCredentials a second time alongside the driver's IL-merged copy.
 		-->
 		<ProjectReference Include="..\..\AppleTVControlLibrary\tests\AppleTV.Companion.FakeDevice\AppleTV.Companion.FakeDevice.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<!-- AppleTVCrestronDriver.csproj's own Reference to Newtonsoft.Json.Compact (see its
+			 alternate-SDK-build ItemGroup) does not flow through as a copy-local item into this
+			 project's own output directory via the ProjectReference above, unlike the RAD
+			 assemblies pulled in transitively via PackageReference. Referencing it directly
+			 here ensures it actually lands next to AppleTVCrestronDriver.Tests.dll, since
+			 real Crestron Home processors have it onboard already but the test runner does not. -->
+		<Reference Include="Newtonsoft.Json.Compact">
+			<HintPath>..\Newtonsoft.Json.Compact.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
 	</ItemGroup>
 
 </Project>

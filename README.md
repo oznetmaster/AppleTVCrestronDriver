@@ -107,7 +107,10 @@ Typical release flow:
 ## Testing
 
 `AppleTVCrestronDriver.Tests` is an MSTest unit/integration test project covering the driver logic that
-does not require a live Crestron control system or a physical Apple TV. Coverage includes:
+does not require a live Crestron control system or a physical Apple TV. Driver orchestration logic
+(pairing, stored-device persistence, connection/reconnect handling, and related state) has been
+extracted behind small internal interfaces so it can be exercised directly by this suite. Coverage
+includes:
 
 - Pairing state helpers and stored credential persistence
 - The Companion Link pairing handshake, driven end-to-end against the in-repo fake device/host

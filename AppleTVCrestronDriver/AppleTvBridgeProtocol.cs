@@ -129,10 +129,7 @@ internal static class AppleTvBridgeProtocol
 	/// would otherwise be confused with the line's own token framing) as Base64 so it is safe to
 	/// place after the <c>CMD:SETTEXT:</c>/<c>EVT:TEXT:</c> prefix on one bridge protocol line.
 	/// </summary>
-	internal static string EncodeText (string text)
-		{
-		return string.IsNullOrEmpty (text) ? string.Empty : Convert.ToBase64String (Encoding.UTF8.GetBytes (text));
-		}
+	internal static string EncodeText (string text) => string.IsNullOrEmpty (text) ? string.Empty : Convert.ToBase64String (Encoding.UTF8.GetBytes (text));
 
 	/// <summary>
 	/// Decodes a keyboard-text token (as produced by <see cref="EncodeText"/>) back into its

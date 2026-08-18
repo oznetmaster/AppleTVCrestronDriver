@@ -103,7 +103,7 @@ internal sealed class AppleTvPairingSessionState
 	// to whichever protocol instance is actually current when the async work
 	// completes, instead of the possibly-stale instance captured when the
 	// chain started.
-	internal AppleTvVideoServerProtocol CurrentProtocol { get; set; }
+	internal IAppleTvProtocol CurrentProtocol { get; set; }
 
 	// The AppleTvVideoServer driver instance Crestron Home currently holds a
 	// live reference to (mirrors CurrentProtocol, but for the driver object

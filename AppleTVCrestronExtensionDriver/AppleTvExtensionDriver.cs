@@ -326,89 +326,72 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		{
 		LogInformation ($"Bridge line received: '{line}'");
 
-		if (string.Equals (line, AppleTvBridgeProtocol.EVENT_CONNECTED, StringComparison.Ordinal))
+		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (line);
+		switch (result.Kind)
 			{
-			OnlineIndicatorIsOnline = true;
-			ReadyIndicatorIsReady = true;
-			SetStatusSummary ("Connected");
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Connected:
+				OnlineIndicatorIsOnline = true;
+				ReadyIndicatorIsReady = true;
+				SetStatusSummary ("Connected");
+				return;
 
-		if (string.Equals (line, AppleTvBridgeProtocol.EVENT_DISCONNECTED, StringComparison.Ordinal))
-			{
-			OnlineIndicatorIsOnline = false;
-			ReadyIndicatorIsReady = false;
-			SetStatusSummary ("Apple TV disconnected");
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Disconnected:
+				OnlineIndicatorIsOnline = false;
+				ReadyIndicatorIsReady = false;
+				SetStatusSummary ("Apple TV disconnected");
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_POWER_PREFIX, StringComparison.Ordinal))
-			{
-			PowerIsOn = line.AsSpan (AppleTvBridgeProtocol.EVENT_POWER_PREFIX.Length).Equals ("On", StringComparison.OrdinalIgnoreCase);
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Power:
+				PowerIsOn = result.BoolValue;
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX, StringComparison.Ordinal))
-			{
-			_ = Interlocked.Increment (ref _refreshStatusRequestVersion);
-			// PowerStatusLabel reflects the Apple TV's own reported system status (e.g.
-			// Awake/Asleep/Idle) and is shown via its own dedicated UI binding
-			// (PowerToggle's secondarylabel). StatusSummary/TileDisplay are a distinct
-			// concept - the bridge connection status (Connected/Reconnecting/disconnected)
-			// - and must not be overwritten here.
-			PowerStatusLabel = line[AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX.Length..];
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.SystemStatus:
+				_ = Interlocked.Increment (ref _refreshStatusRequestVersion);
+				// PowerStatusLabel reflects the Apple TV's own reported system status (e.g.
+				// Awake/Asleep/Idle) and is shown via its own dedicated UI binding
+				// (PowerToggle's secondarylabel). StatusSummary/TileDisplay are a distinct
+				// concept - the bridge connection status (Connected/Reconnecting/disconnected)
+				// - and must not be overwritten here.
+				PowerStatusLabel = result.StringValue;
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX, StringComparison.Ordinal))
-			{
-			VolumeControlSupported = line.AsSpan (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.VolumeSupported:
+				VolumeControlSupported = result.BoolValue;
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX, StringComparison.Ordinal))
-			{
-			MuteIsOn = line.AsSpan (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Mute:
+				MuteIsOn = result.BoolValue;
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_APPS_PREFIX, StringComparison.Ordinal))
-			{
-			string encoded = line[AppleTvBridgeProtocol.EVENT_APPS_PREFIX.Length..];
-			List<(string BundleId, string Name)> apps = AppleTvBridgeProtocol.DecodeApps (encoded);
-			LogInformation ($"Decoded {apps.Count} app(s) from bridge apps event (encoded length={encoded.Length}).");
-			ApplyAppList (apps);
-			return;
-			}
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Apps:
+				LogInformation ($"Decoded {result.Apps.Count} app(s) from bridge apps event.");
+				ApplyAppList (result.Apps);
+				return;
 
-		// Mirrors AppleTv.Remote.Wpf's reactive TextInputDialog: KeyboardFocused gates the
-		// textentry control group's visibility in UiDefinition.xml, showing it only while the
-		// Apple TV's on-screen keyboard actually has focus.
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
-			{
-			bool focused = line.AsSpan (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX.Length).Equals ("1", StringComparison.Ordinal);
-			KeyboardFocused = focused;
-			// The Apple TV's on-screen keyboard is gone once it drops the text-input request, so
-			// the textentry control (and any previously-entered text) is hidden/cleared along
-			// with it, mirroring AppleTv.Remote.Wpf's MainViewModel.HideTextInput.
-			if (!focused)
-				{
-				ApplyKeyboardTextFromDevice (string.Empty);
-				}
+			// Mirrors AppleTv.Remote.Wpf's reactive TextInputDialog: KeyboardFocused gates the
+			// textentry control group's visibility in UiDefinition.xml, showing it only while the
+			// Apple TV's on-screen keyboard actually has focus.
+			case AppleTvExtensionDriverLogic.BridgeLineKind.KeyboardFocus:
+				KeyboardFocused = result.BoolValue;
+				// The Apple TV's on-screen keyboard is gone once it drops the text-input request, so
+				// the textentry control (and any previously-entered text) is hidden/cleared along
+				// with it, mirroring AppleTv.Remote.Wpf's MainViewModel.HideTextInput.
+				if (!result.BoolValue)
+					{
+					ApplyKeyboardTextFromDevice (string.Empty);
+					}
 
-			return;
-			}
+				return;
 
-		if (line.StartsWith (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX, StringComparison.Ordinal))
-			{
-			string encoded = line[AppleTvBridgeProtocol.EVENT_TEXT_PREFIX.Length..];
-			ApplyKeyboardTextFromDevice (AppleTvBridgeProtocol.DecodeText (encoded));
+			case AppleTvExtensionDriverLogic.BridgeLineKind.Text:
+				ApplyKeyboardTextFromDevice (result.StringValue);
+				return;
 			}
 		}
 
 	private void ApplyAppList (IReadOnlyList<(string BundleId, string Name)> apps)
 		{
-		apps = [.. apps.OrderBy (app => app.Name, StringComparer.CurrentCultureIgnoreCase)];
+		apps = AppleTvExtensionDriverLogic.SortApps (apps);
 
 		lock (_stateLock)
 			{
@@ -432,15 +415,11 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		// SetAndNotify), so assigning them here is sufficient - no separate explicit
 		// NotifyPropertyChanged calls are needed.
 		AppList = items;
-		if (apps.Count > 0 && !apps.Any (app => string.Equals (app.BundleId, SelectedApp, StringComparison.Ordinal)))
+		(bool shouldChange, string bundleIdToSelect, string nameToSelect) = AppleTvExtensionDriverLogic.DetermineSelection (apps, SelectedApp);
+		if (shouldChange)
 			{
-			SelectedApp = apps[0].BundleId;
-			SelectedAppName = apps[0].Name;
-			}
-		else if (apps.Count == 0)
-			{
-			SelectedApp = string.Empty;
-			SelectedAppName = string.Empty;
+			SelectedApp = bundleIdToSelect;
+			SelectedAppName = nameToSelect;
 			}
 
 		LogInformation ($"ApplyAppList applied {apps.Count} app(s); AppList.Length={AppList?.Length ?? 0}, SelectedApp='{SelectedApp}'.");

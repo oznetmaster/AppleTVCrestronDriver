@@ -17,7 +17,7 @@ using Crestron.SimplSharp;
 
 namespace AppleTV.CrestronDriver;
 
-internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
+internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleTvProtocol
 	{
 	// Confirmed against the Ultamation reference driver's IL
 	// (CLinkClient.Navigate(HidCommand, HidAction), HidAction.Press/Release):
@@ -84,6 +84,21 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol
 		_keyboardBridge = new AppleTvKeyboardBridge (() => _session, LogDiagnostic);
 		_keyboardBridge.BridgeEventRaised += line => BridgeEventRaised?.Invoke (line);
 		}
+
+	// Explicit interface implementations for IAppleTvProtocol: the existing internal
+	// members below remain internal (used directly by AppleTvVideoServer, which is in the
+	// same assembly), while these forwards let logic coded against IAppleTvProtocol
+	// (for off-box testing) use the same members through the seam.
+	string IAppleTvProtocol.AppleTvName => AppleTvName;
+
+	string IAppleTvProtocol.PairingPin => PairingPin;
+
+	bool IAppleTvProtocol.IsConnected => IsConnected;
+
+	Task IAppleTvProtocol.ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
+		=> ConnectCompanionAsync (address, port, credentials, stableIdentifier, appleTvName);
+
+	void IAppleTvProtocol.SetCompanionConnectionState (bool connected) => SetCompanionConnectionState (connected);
 
 	internal async Task ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
 		{

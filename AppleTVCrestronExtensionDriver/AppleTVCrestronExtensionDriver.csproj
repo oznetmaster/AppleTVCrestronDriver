@@ -41,16 +41,14 @@
 		<AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
 			<_Parameter1>9C1B9F55-4C2E-4B3A-9F7E-3E5C2F6C9E10</_Parameter1>
 		</AssemblyAttribute>
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>AppleTVCrestronDriver.Tests</_Parameter1>
+		</AssemblyAttribute>
 	</ItemGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
 		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
-		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
-		<PackageReference Include="IsExternalInit" Version="1.0.3">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
 	</ItemGroup>
 
@@ -117,21 +115,13 @@
 			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.dll" />
 			<MergeInputs Include="$(TargetDir)BouncyCastle.Cryptography.dll" />
 			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" />
+			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.Memory.dll" />
 			<MergeInputs Include="$(TargetDir)plist-cil.dll" />
 			<MergeInputs Include="$(TargetDir)System.Buffers.dll" />
 			<MergeInputs Include="$(TargetDir)System.Memory.dll" />
 			<MergeInputs Include="$(TargetDir)System.Numerics.Vectors.dll" />
 			<MergeInputs Include="$(TargetDir)System.Runtime.CompilerServices.Unsafe.dll" />
 			<MergeInputs Include="$(TargetDir)System.Threading.Tasks.Extensions.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.CallerInformationAttributes.G2.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.ConstantExpectedAttribute.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.DynamicallyAccessedMembersAttribute.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.ExperimentalAttribute.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.FeatureGuardAttribute.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.MetaPackage.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G1.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G2.dll" />
-			<MergeInputs Include="$(TargetDir)Hafner.Compatibility.NullableReferenceTypeAttributes.G3.dll" />
 		</ItemGroup>
 		<WriteLinesToFile File="$(TargetDir)merge_inputs.txt" Lines="@(MergeInputs)" Overwrite="true" />
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\ILRepackMerge.ps1&quot; -TargetPath &quot;$(TargetPath)&quot; -InputListFile &quot;$(TargetDir)merge_inputs.txt&quot; -LibDir &quot;$(TargetDir.TrimEnd('\'))&quot; -SdkLibDir &quot;$(LocalCrestronSdkLibDir)&quot; -FxRefDir &quot;$(LocalNet472ReferenceAssemblies)&quot; -FxRuntimeDir &quot;$(LocalNetFxRuntimeDir)&quot;" ContinueOnError="$(MergeDependenciesContinueOnError)" />
@@ -148,7 +138,13 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\FixPkgPathSeparators.ps1&quot; -PkgPath &quot;$(TargetDir)$(AssemblyName).pkg&quot;" ContinueOnError="$(PackageDriverContinueOnError)" />
 	</Target>
 
-	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != ''">
+	<!-- BuildingInsideVisualStudio is set to true only by Visual Studio's own build engine (F6/
+		 Ctrl+Shift+B/F5/right-click Build or Rebuild), never by command-line MSBuild, `dotnet build`/
+		 `dotnet test`, CI, or other external tooling. Without this, any tool-driven build of this
+		 project would silently SFTP a .pkg to the real processor in CrestronHomeIP, purely because
+		 AppleTVCrestronExtensionDriver.csproj.user defaults DeployAfterBuild to true for convenience
+		 during normal interactive Visual Studio use. -->
+	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != '' And '$(BuildingInsideVisualStudio)' == 'true'">
 		<PropertyGroup>
 			<PkgFile>$(TargetDir)$(AssemblyName).pkg</PkgFile>
 			<DeployScriptPath>$(MSBuildProjectDirectory)\Deploy.ps1</DeployScriptPath>

@@ -14,8 +14,8 @@
 		<AssemblyCopyright>Copyright © 2026</AssemblyCopyright>
 		<AssemblyTrademark></AssemblyTrademark>
 		<AssemblyCulture></AssemblyCulture>
-		<AssemblyVersion>1.3.0.0</AssemblyVersion>
-		<FileVersion>1.3.0.0</FileVersion>
+		<AssemblyVersion>1.4.0.0</AssemblyVersion>
+		<FileVersion>1.4.0.0</FileVersion>
 		<ComVisible>false</ComVisible>
 		<GenerateDocumentationFile>true</GenerateDocumentationFile>
 		<NoWarn>$(NoWarn);ILLink1005</NoWarn>
@@ -38,6 +38,19 @@
 		<PackageDriverPkgPath Condition="'$(PackageDriverPkgPath)' == ''"></PackageDriverPkgPath>
 		<PackageDriverManifestPath Condition="'$(PackageDriverManifestPath)' == ''"></PackageDriverManifestPath>
 		<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Debug'">true</TreatWarningsAsErrors>
+		<!-- The SDK's default compile-item excludes are derived from the *current* BaseIntermediateOutputPath/
+			 BaseOutputPath (which differ for the alternate SDK build variant), so a normal obj\Debug\.../
+			 bin\Debug\... build output left over from a plain build of this project is no longer excluded and
+			 its generated AssemblyInfo/AssemblyAttributes .cs files get compiled a second time here, causing
+			 CS0579 duplicate attribute errors. Always exclude both obj\ and bin\ regardless of which variant
+			 is currently building. -->
+		<DefaultItemExcludes>$(DefaultItemExcludes);obj\**;bin\**</DefaultItemExcludes>
+		<!-- Belt-and-braces: never let the alternate SDK test-build variant be packed, even if `dotnet pack`
+			 is invoked directly against it. BaseOutputPath/BaseIntermediateOutputPath for that
+			 variant are supplied as global properties from a private, non-published test project's
+			 ProjectReference (see its Properties metadata), not here, since overriding them this
+			 late would not take effect before the SDK's default item excludes are computed. -->
+		<IsPackable Condition="'$(UseAlternateSdkBuild)' == 'true'">false</IsPackable>
 	</PropertyGroup>
 
 	<!-- Lets the release workflow supply the GitHub Release notes as the NuGet package's release notes without
@@ -67,13 +80,35 @@
 			 one AppleTv.Hap.csproj references. -->
 		<PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
-		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" />
+		<!-- When UseAlternateSdkBuild=true (set via ProjectReference Properties metadata from a private,
+			 non-published test project), the real Crestron.SimplSharp.SDK.Library package is swapped for
+			 an alternate, deterministic, in-memory test double of the SimplSharp APIs (wired up locally;
+			 see AppleTVCrestronDriver.Local.targets), instead of the real appliance-only assembly. -->
+		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" Condition="'$(UseAlternateSdkBuild)' != 'true'" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
 		<PackageReference Include="IsExternalInit" Version="1.0.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
+	</ItemGroup>
+	<ItemGroup Condition="'$(UseAlternateSdkBuild)' == 'true'">
+		<!-- The actual ProjectReference to the alternate SDK test-double project is intentionally not
+			 declared here: it lives in AppleTVCrestronDriver.Local.targets (a local-only, non-published
+			 file imported below) alongside its private test project. -->
+		<!-- RADCommon.dll (from Crestron.DeviceDrivers.ProgramInterface, pulled in transitively by
+			 Crestron.DeviceDrivers.DevKit) requires Newtonsoft.Json.Compact, Version=4.0.8.0,
+			 PublicKeyToken=1099c178b3b54c3b at runtime, but no NuGet package in this dependency
+			 graph actually ships that assembly - real Crestron Home processors have it onboard
+			 already, so production deploys are unaffected. Test builds have no processor to supply
+			 it, so without this reference any code path that touches RAD types (e.g. constructing
+			 an ABasicVideoServer-derived class) fails with a FileNotFoundException at test time.
+			 Reference the copy checked into the repo root purely so it gets copied into the test
+			 build's output directory; never used by the real packaged/deployed driver. -->
+		<Reference Include="Newtonsoft.Json.Compact">
+			<HintPath>..\Newtonsoft.Json.Compact.dll</HintPath>
+			<Private>true</Private>
+		</Reference>
 	</ItemGroup>
 	<ItemGroup>
 		<EmbeddedResource Include="AppleTVCrestronDriver.json" />
@@ -111,6 +146,14 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
 	</Target>
 
+		<!-- Never runs for the UseAlternateSdkBuild=true test-only build variant (see PropertyGroup above):
+		 that build exists solely so a private, non-published test project can compile/run against
+		 an alternate SDK test double instead of the real SDK, and must never be merged/packaged/deployed. -->
+	<!-- Always runs, even for the alternate SDK test-build variant: AppleTVCrestronDriver.Tests relies on
+		 AppleTVControlLibrary/AppleTv.Hap types (e.g. HapCredentials, CompanionApi) being IL-merged
+		 into this assembly, since DisableTransitiveProjectReferences=true in the test project hides
+		 the raw NuGet-sourced copies of those types. Only PackageDriver/DeployDriver (which produce
+		 and ship a .pkg to a real Crestron processor) are skipped for the alternate SDK variant, not this. -->
 	<Target Name="MergeDependencies" AfterTargets="Build" Inputs="$(TargetPath);@(ReferenceCopyLocalPaths)" Outputs="$(TargetDir)patched\$(AssemblyName).dll">
 		<!-- Re-copy the resolved package/reference assemblies into $(TargetDir) immediately before merging.
 			 This guards against a stale AppleTVControlLibrary*.dll (or other dependency) left over from a
@@ -156,7 +199,7 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\PatchMergedAssembly.ps1&quot; -AssemblyPath &quot;$(TargetPath)&quot; -OutputPath &quot;$(TargetDir)patched\$(AssemblyName).dll&quot;" ContinueOnError="false" />
 	</Target>
 
-	<Target Name="PackageDriver" AfterTargets="MergeDependencies">
+	<Target Name="PackageDriver" AfterTargets="MergeDependencies" Condition="'$(UseAlternateSdkBuild)' != 'true'">
 		<RemoveDir Directories="$(TargetDir)patched\IncludeInPkg" />
 		<ItemGroup>
 			<IncludeInPkgFiles Include="$(MSBuildProjectDirectory)\IncludeInPkg\**\*" Exclude="$(MSBuildProjectDirectory)\IncludeInPkg\**\*.xsd" />
@@ -166,7 +209,15 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\FixPkgPathSeparators.ps1&quot; -PkgPath &quot;$(TargetDir)$(AssemblyName).pkg&quot;" ContinueOnError="$(PackageDriverContinueOnError)" />
 	</Target>
 
-	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != ''">
+	<!-- BuildingInsideVisualStudio is set to true only by Visual Studio's own build engine (F6/
+		 Ctrl+Shift+B/F5/right-click Build or Rebuild), never by command-line MSBuild, `dotnet build`/
+		 `dotnet test`, CI, or other external tooling. Without this, any tool-driven build of this
+		 project that isn't routed through the public test project's UseAlternateSdkBuild=true/
+		 DeployAfterBuild=false ProjectReference override (e.g. a plain `dotnet build` against this
+		 .csproj, or an editor/agent invoking MSBuild directly) would silently SFTP a .pkg to the real
+		 processor in CrestronHomeIP, purely because AppleTVCrestronDriver.csproj.user defaults
+		 DeployAfterBuild to true for convenience during normal interactive Visual Studio use. -->
+	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(UseAlternateSdkBuild)' != 'true' And '$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != '' And '$(BuildingInsideVisualStudio)' == 'true'">
 		<PropertyGroup>
 			<PkgFile>$(TargetDir)$(AssemblyName).pkg</PkgFile>
 			<DeployScriptPath>$(MSBuildProjectDirectory)\Deploy.ps1</DeployScriptPath>

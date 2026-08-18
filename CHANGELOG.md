@@ -9,6 +9,15 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [1.4.0] - 2026-08-17
+
+### Changed
+
+- Internal restructuring to facilitate unit testing: driver orchestration logic (pairing, stored-device
+  persistence, connection/reconnect handling, and related state) was extracted behind small internal
+  interfaces/seams so it can be exercised directly by an expanded automated test suite. No functional or
+  behavioral change for the shipped driver.
+
 ## [1.3.3] - 2026-08-16
 
 ### Fixed
