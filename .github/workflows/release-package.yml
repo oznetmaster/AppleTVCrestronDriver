@@ -194,12 +194,16 @@ jobs:
       - name: Build release package
         shell: pwsh
         run: |
-          # -maxcpucount:1 (single project at a time): the driver/extension driver projects each run an
-          # ILRepack post-build step that locks their own bin\ output briefly, and MSBuild's default
-          # multi-project parallelism let another project's build step race against it, intermittently
-          # producing MSB3027/CS2012 "process cannot access the file" failures. Building serially avoids
-          # that race; the projects here are small enough that this has negligible impact on build time.
-          dotnet build AppleTVCrestronDriver.slnx -c Release -maxcpucount:1 -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
+          # Builds only the two driver projects directly (not the whole .slnx): building the solution
+          # also builds AppleTVCrestronDriver.Tests.csproj, whose ProjectReferences to these same two
+          # driver projects (with Properties="DeployAfterBuild=false") make MSBuild schedule a second,
+          # concurrent build request for each driver project writing into the very same bin/obj output
+          # directory as the top-level solution entry - both running their ILRepack post-build merge
+          # step against the same files at once, intermittently producing MSB3027/CS2012 "process
+          # cannot access the file" failures. Building just these two projects avoids that duplicate
+          # build request entirely.
+          dotnet build AppleTVCrestronDriver/AppleTVCrestronDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
+          dotnet build AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
 
       - name: Locate video server package
         id: package
