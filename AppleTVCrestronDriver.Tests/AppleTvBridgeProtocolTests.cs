@@ -5,14 +5,17 @@ using System.Collections.Generic;
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
-[TestClass]
+[TestFixture]
 public sealed class AppleTvBridgeProtocolTests
 	{
-	[TestMethod]
+	[Test]
 	public void EncodeApps_NullList_ReturnsEmptyString ()
 		{
 		string encoded = AppleTvBridgeProtocol.EncodeApps (null);
@@ -20,7 +23,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual (string.Empty, encoded);
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeApps_EmptyList_ReturnsEmptyString ()
 		{
 		string encoded = AppleTvBridgeProtocol.EncodeApps ([]);
@@ -28,7 +31,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual (string.Empty, encoded);
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeApps_RoundTripsSingleApp ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV") };
@@ -41,7 +44,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual ("Apple TV", decoded[0].Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeApps_RoundTripsMultipleApps ()
 		{
 		var apps = new List<(string BundleId, string Name)>
@@ -57,7 +60,7 @@ public sealed class AppleTvBridgeProtocolTests
 		CollectionAssert.AreEqual (apps, decoded);
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeApps_NameContainingColon_RoundTrips ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.example.app", "App: The Sequel") };
@@ -69,28 +72,28 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual ("App: The Sequel", decoded[0].Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void DecodeApps_NullOrEmpty_ReturnsEmptyList ()
 		{
 		Assert.AreEqual (0, AppleTvBridgeProtocol.DecodeApps (null).Count);
 		Assert.AreEqual (0, AppleTvBridgeProtocol.DecodeApps (string.Empty).Count);
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeText_NullOrEmpty_ReturnsEmptyString ()
 		{
 		Assert.AreEqual (string.Empty, AppleTvBridgeProtocol.EncodeText (null));
 		Assert.AreEqual (string.Empty, AppleTvBridgeProtocol.EncodeText (string.Empty));
 		}
 
-	[TestMethod]
+	[Test]
 	public void DecodeText_NullOrEmpty_ReturnsEmptyString ()
 		{
 		Assert.AreEqual (string.Empty, AppleTvBridgeProtocol.DecodeText (null));
 		Assert.AreEqual (string.Empty, AppleTvBridgeProtocol.DecodeText (string.Empty));
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeText_RoundTripsPlainText ()
 		{
 		string encoded = AppleTvBridgeProtocol.EncodeText ("hello world");
@@ -98,7 +101,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual ("hello world", AppleTvBridgeProtocol.DecodeText (encoded));
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeText_RoundTripsTextContainingColonAndNewline ()
 		{
 		string text = "user: line1\nline2:more";
@@ -108,7 +111,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual (text, AppleTvBridgeProtocol.DecodeText (encoded));
 		}
 
-	[TestMethod]
+	[Test]
 	public void EncodeDecodeText_RoundTripsUnicodeText ()
 		{
 		string text = "caf\u00E9 \uD83D\uDE00 \u65E5\u672C\u8A9E";
@@ -118,7 +121,7 @@ public sealed class AppleTvBridgeProtocolTests
 		Assert.AreEqual (text, AppleTvBridgeProtocol.DecodeText (encoded));
 		}
 
-	[TestMethod]
+	[Test]
 	public void DecodeText_InvalidBase64_ReturnsEmptyString ()
 		{
 		Assert.AreEqual (string.Empty, AppleTvBridgeProtocol.DecodeText ("not valid base64!!!"));

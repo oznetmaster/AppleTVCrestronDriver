@@ -8,7 +8,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.FakeDevice;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -17,10 +20,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// handshake against AppleTVControlLibrary's reusable <see cref="FakeCompanionTcpHost"/>,
 /// a real socket-backed fake Apple TV, instead of requiring physical hardware.
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvCompanionPairingIntegrationTests
 	{
-	[TestMethod]
+	[Test]
 	public async Task BeginAsync_ThenCompleteAsync_WithCorrectPin_ReturnsPairedStoredDevice ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);
@@ -38,7 +41,7 @@ public sealed class AppleTvCompanionPairingIntegrationTests
 		Assert.IsTrue (host.AuthDevice.HasPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task CompleteAsync_WithWrongPin_ThrowsAuthenticationException ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);

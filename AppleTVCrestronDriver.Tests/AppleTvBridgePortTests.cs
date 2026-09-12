@@ -3,14 +3,17 @@
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
-[TestClass]
+[TestFixture]
 public sealed class AppleTvBridgePortTests
 	{
-	[TestMethod]
+	[Test]
 	public void GetPort_SameUniqueId_ReturnsSameValue ()
 		{
 		int first = AppleTvBridgePort.GetPort ("AABBCCDDEEFF");
@@ -19,7 +22,7 @@ public sealed class AppleTvBridgePortTests
 		Assert.AreEqual (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPort_DiffersByCaseOrWhitespaceOnly_ReturnsSameValue ()
 		{
 		int first = AppleTvBridgePort.GetPort ("AABBCCDDEEFF");
@@ -28,7 +31,7 @@ public sealed class AppleTvBridgePortTests
 		Assert.AreEqual (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPort_DifferentUniqueIds_ReturnDifferentValues ()
 		{
 		int first = AppleTvBridgePort.GetPort ("AABBCCDDEEFF");
@@ -37,7 +40,7 @@ public sealed class AppleTvBridgePortTests
 		Assert.AreNotEqual (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPort_ReturnsValueWithinExpectedRange ()
 		{
 		int port = AppleTvBridgePort.GetPort ("AABBCCDDEEFF");
@@ -45,13 +48,13 @@ public sealed class AppleTvBridgePortTests
 		Assert.IsTrue (port >= 20000 && port < 30000, $"Expected a port between 20000 and 29999, but got {port}.");
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPort_NullOrWhitespaceUniqueId_Throws ()
 		{
-		_ = Assert.ThrowsExactly<System.ArgumentException> (() => AppleTvBridgePort.GetPort (" "));
+		_ = NUnit.Framework.Assert.Throws<System.ArgumentException> (() => AppleTvBridgePort.GetPort (" "));
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPortCandidates_FirstValue_MatchesGetPort ()
 		{
 		int first = AppleTvBridgePort.GetPort ("AABBCCDDEEFF");
@@ -60,7 +63,7 @@ public sealed class AppleTvBridgePortTests
 		Assert.AreEqual (first, firstCandidate);
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPortCandidates_SameUniqueId_ReturnsSameSequence ()
 		{
 		var first = new System.Collections.Generic.List<int> (AppleTvBridgePort.GetPortCandidates ("AABBCCDDEEFF"));
@@ -69,7 +72,7 @@ public sealed class AppleTvBridgePortTests
 		CollectionAssert.AreEqual (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPortCandidates_ReturnsExpectedCountAllWithinRange ()
 		{
 		var candidates = new System.Collections.Generic.List<int> (AppleTvBridgePort.GetPortCandidates ("AABBCCDDEEFF"));
@@ -81,9 +84,9 @@ public sealed class AppleTvBridgePortTests
 			}
 		}
 
-	[TestMethod]
+	[Test]
 	public void GetPortCandidates_NullOrWhitespaceUniqueId_Throws ()
 		{
-		_ = Assert.ThrowsExactly<System.ArgumentException> (() => System.Linq.Enumerable.First (AppleTvBridgePort.GetPortCandidates (" ")));
+		_ = NUnit.Framework.Assert.Throws<System.ArgumentException> (() => System.Linq.Enumerable.First (AppleTvBridgePort.GetPortCandidates (" ")));
 		}
 	}

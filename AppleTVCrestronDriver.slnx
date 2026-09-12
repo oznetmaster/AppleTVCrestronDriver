@@ -10,4 +10,5 @@
   <Project Path="AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj" />
   <Project Path="AppleTVCrestronDriver/AppleTVCrestronDriver.csproj" />
   <Project Path="AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj" />
+  <Project Path="AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj" />
 </Solution>

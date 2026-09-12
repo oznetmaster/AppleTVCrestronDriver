@@ -10,7 +10,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.Discovery.Companion;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -27,16 +30,16 @@ namespace AppleTVCrestronDriver.Tests;
 /// contract and the adapter's delegation to the real scanner - not yet the orchestration logic that
 /// consumes it.
 /// </remarks>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvDiscoveryTests
 	{
-	[TestMethod]
+	[Test]
 	public void AppleTvMulticastDiscoveryAdapter_ImplementsIAppleTvDiscovery ()
 		{
-		Assert.IsInstanceOfType<IAppleTvDiscovery> (new AppleTvMulticastDiscoveryAdapter ());
+		Assert.IsInstanceOf<IAppleTvDiscovery> (new AppleTvMulticastDiscoveryAdapter ());
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task DiscoverByNameAsync_AlreadyCancelled_CompletesWithoutFindingAnything ()
 		{
 		// MulticastCompanionDiscovery.ScanCoreAsync catches OperationCanceledException/
@@ -52,7 +55,7 @@ public sealed class AppleTvDiscoveryTests
 		Assert.IsNull (result);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task ScanAsync_AlreadyCancelled_CompletesWithoutFindingAnything ()
 		{
 		IAppleTvDiscovery discovery = new AppleTvMulticastDiscoveryAdapter ();
@@ -64,7 +67,7 @@ public sealed class AppleTvDiscoveryTests
 		Assert.AreEqual (0, results.Count);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task FakeDiscovery_CanSubstituteForTheRealAdapter ()
 		{
 		// Demonstrates the seam's actual purpose: orchestration code written against
@@ -80,7 +83,10 @@ public sealed class AppleTvDiscoveryTests
 
 	private sealed class FakeDiscovery : IAppleTvDiscovery
 		{
-		internal CompanionDiscoveryResult ResultToReturn { get; set; }
+		internal CompanionDiscoveryResult ResultToReturn
+			{
+			get; set;
+			}
 
 		public Task<CompanionDiscoveryResult> DiscoverByNameAsync (string appleTvName, TimeSpan timeout, CancellationToken cancellationToken)
 			=> Task.FromResult (ResultToReturn);

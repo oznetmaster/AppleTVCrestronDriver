@@ -1,10 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
 		<LangVersion>latest</LangVersion>
 		<Nullable>disable</Nullable>
 		<IsPackable>false</IsPackable>
+		<IsTestProject>true</IsTestProject>
+		<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+		<GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
 		<IsPublishable>false</IsPublishable>
 		<RootNamespace>AppleTV.CrestronDriver.Tests</RootNamespace>
 
@@ -24,9 +27,9 @@
 
 	<ItemGroup>
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-		<PackageReference Include="MSTest.TestAdapter" Version="4.3.3" />
-		<PackageReference Include="MSTest.TestFramework" Version="4.3.3" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" PrivateAssets="all" />
+		<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" PrivateAssets="all" />
+		<PackageReference Include="NUnit" Version="4.6.1" />
 		<!-- AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary.Discovery into its own output
 			 assembly (see MergeDependencies below), so this project already sees types like
 			 CompanionDiscoveryResult as part of the driver assembly. Unlike some packages, both
@@ -54,8 +57,8 @@
 			 CrestronHomeIP is set - which .Local.targets/.csproj.user default to on a dev machine
 			 set up for F5 deploys. Without this override, simply building this test project would
 			 package and deploy both drivers to the real Crestron Home processor. -->
-		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" Properties="DeployAfterBuild=false" />
-		<ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" Properties="DeployAfterBuild=false" />
+		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
+		<ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
 
 		<!--
 			AppleTVControlLibrary's own test suite ships a reusable in-memory fake Companion

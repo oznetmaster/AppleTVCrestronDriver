@@ -95,6 +95,18 @@ The build pipeline compiles this project targeting `net472`, bumps `DriverVersio
 
 ---
 
+## Tests
+
+The shared [NUnit suite](../AppleTVCrestronDriver.Tests) includes **17 dedicated extension-driver
+logic tests** covering bridge feedback parsing, app-list sorting, selection preservation and
+clearing stale selections. Bridge and keyboard tests provide additional shared coverage. These
+are part of the 97 tests run by CI and by the [processor test package](../AppleTVCrestronDriver.ProcessorTests/README.md).
+
+Run the `AppleTvExtensionDriverLogicTests` fixture in Visual Studio Test Explorer or discover
+and select it in the Windows NUnit runner. The same processor package tests both drivers and
+provides its own Utility tile. These tests do not yet exercise the complete Entity V2 lifecycle
+or render the production UI.
+
 ## Release Notes
 
 See [CHANGELOG.md](CHANGELOG.md) for this package's release history.

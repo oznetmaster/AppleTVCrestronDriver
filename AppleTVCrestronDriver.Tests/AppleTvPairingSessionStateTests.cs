@@ -3,14 +3,17 @@
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
-[TestClass]
+[TestFixture]
 public sealed class AppleTvPairingSessionStateTests
 	{
-	[TestMethod]
+	[Test]
 	public void Instance_IsSingleton ()
 		{
 		AppleTvPairingSessionState first = AppleTvPairingSessionState.Instance;
@@ -19,7 +22,7 @@ public sealed class AppleTvPairingSessionStateTests
 		Assert.AreSame (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void PairingTarget_Empty_HasEmptyValues ()
 		{
 		PairingTarget target = PairingTarget.Empty;
@@ -30,7 +33,7 @@ public sealed class AppleTvPairingSessionStateTests
 		Assert.AreEqual (string.Empty, target.Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void PairingTarget_EqualValues_AreEqual ()
 		{
 		PairingTarget first = new ("10.0.0.1", 1234, "unique", "Living Room");
@@ -39,7 +42,7 @@ public sealed class AppleTvPairingSessionStateTests
 		Assert.AreEqual (first, second);
 		}
 
-	[TestMethod]
+	[Test]
 	public void PairingTarget_DifferentValues_AreNotEqual ()
 		{
 		PairingTarget first = new ("10.0.0.1", 1234, "unique", "Living Room");

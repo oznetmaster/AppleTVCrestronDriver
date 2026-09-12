@@ -9,6 +9,23 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+## [Unreleased]
+
+### Fixed
+
+- Filename-sanitization test now checks the current runtime's invalid filename characters, rather than assuming Windows restrictions on the processor's Mono runtime. Driver storage behavior is unchanged.
+
+### Changed
+
+- Converted all 97 public driver unit/integration tests from MSTest to NUnit, preserving per-test fixture instances and serial execution.
+- Test builds skip production driver version bumps, packaging and deployment while retaining dependency merging.
+
+### Added
+
+- Push/PR CI requiring all 97 NUnit tests and two complete runs of the packaged suite on Windows. All 97 tests also validated manually on Crestron Home.
+- A `net472` processor test project in the existing solution, with a standalone Utility tile and Windows NUnit runner discovery.
+- Processor package discovery validation, isolated desktop validation dependencies, license notices and private Visual Studio Debug deployment settings.
+
 ## [1.4.1] - 2026-08-18
 
 ### Fixed

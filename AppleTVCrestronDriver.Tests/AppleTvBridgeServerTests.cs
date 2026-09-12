@@ -10,7 +10,10 @@ using System.Threading.Tasks;
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -20,10 +23,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// tokenized event line, mirroring how the future extension-driver client and this Crestron
 /// driver's bridge server are expected to communicate.
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvBridgeServerTests
 	{
-	[TestMethod]
+	[Test]
 	public async Task BroadcastEvent_ConnectedClient_ReceivesLine ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -42,7 +45,7 @@ public sealed class AppleTvBridgeServerTests
 		Assert.AreEqual ("EVT:CONNECTED", line);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task ClientCommand_IsDeliveredToHandler ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -59,7 +62,7 @@ public sealed class AppleTvBridgeServerTests
 		Assert.AreEqual ("CMD:HID:Select", received.Task.Result);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task ClientLaunchCommand_IsDeliveredToHandler ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -76,7 +79,7 @@ public sealed class AppleTvBridgeServerTests
 		Assert.AreEqual ("CMD:LAUNCH:com.apple.tv", received.Task.Result);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task BroadcastEvent_AppsLine_IsReceivedByClient ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -102,7 +105,7 @@ public sealed class AppleTvBridgeServerTests
 	// guard, disposal would unconditionally null out whichever handler happens to be registered -
 	// including a newer, live one - leaving every subsequent bridge command silently dropped even
 	// though the newer instance's Companion Link session is perfectly healthy.
-	[TestMethod]
+	[Test]
 	public async Task HandlerRegistration_ClearIfCurrent_SupersededByNewerRegistration_DoesNotClearNewerHandler ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -132,7 +135,7 @@ public sealed class AppleTvBridgeServerTests
 		Assert.IsFalse (firstReceived.Task.IsCompleted, "The superseded first handler must never receive commands after being replaced.");
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task HandlerRegistration_ClearIfCurrent_StillCurrent_StopsDeliveringToDisposedHandler ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -154,22 +157,22 @@ public sealed class AppleTvBridgeServerTests
 		Assert.AreNotSame (received.Task, completed, "A command arriving after the owning instance disposed must not reach the stale handler.");
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlerRegistration_Install_NullBridgeServer_Throws ()
 		{
-		_ = Assert.ThrowsExactly<ArgumentNullException> (() => AppleTvBridgeServerHandlerRegistration.Install (null, new RecordingHandler (new TaskCompletionSource<string> ())));
+		_ = NUnit.Framework.Assert.Throws<ArgumentNullException> (() => AppleTvBridgeServerHandlerRegistration.Install (null, new RecordingHandler (new TaskCompletionSource<string> ())));
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlerRegistration_Install_NullHandler_Throws ()
 		{
 		int port = GetFreeLoopbackPort ();
 		using AppleTvBridgeServer server = AppleTvBridgeServer.Start (port, log: null);
 
-		_ = Assert.ThrowsExactly<ArgumentNullException> (() => AppleTvBridgeServerHandlerRegistration.Install (server, null));
+		_ = NUnit.Framework.Assert.Throws<ArgumentNullException> (() => AppleTvBridgeServerHandlerRegistration.Install (server, null));
 		}
 
-	[TestMethod]
+	[Test]
 	public void StartFirstAvailable_FirstCandidateTaken_BindsNextCandidate ()
 		{
 		int taken = GetFreeLoopbackPort ();
@@ -188,7 +191,7 @@ public sealed class AppleTvBridgeServerTests
 			}
 		}
 
-	[TestMethod]
+	[Test]
 	public void StartFirstAvailable_AllCandidatesTaken_Throws ()
 		{
 		int first = GetFreeLoopbackPort ();
@@ -199,7 +202,7 @@ public sealed class AppleTvBridgeServerTests
 		secondBlocker.Start ();
 		try
 			{
-			_ = Assert.ThrowsExactly<SocketException> (() => AppleTvBridgeServer.StartFirstAvailable ([first, second], log: null));
+			_ = NUnit.Framework.Assert.Throws<SocketException> (() => AppleTvBridgeServer.StartFirstAvailable ([first, second], log: null));
 			}
 		finally
 			{

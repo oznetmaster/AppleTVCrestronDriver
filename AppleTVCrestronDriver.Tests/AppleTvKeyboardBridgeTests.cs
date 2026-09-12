@@ -10,7 +10,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.FakeDevice;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -34,7 +37,7 @@ namespace AppleTVCrestronDriver.Tests;
 /// this by setting <c>FakeCompanionOpackDevice.RtiFocusState</c> via reflection instead of
 /// naming the enum type directly.
 /// </remarks>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvKeyboardBridgeTests
 	{
 	private static void SetRtiFocusState (FakeCompanionOpackDevice device, bool focused)
@@ -45,7 +48,7 @@ public sealed class AppleTvKeyboardBridgeTests
 		method.Invoke (device, [value]);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task KeyboardFocusGained_RaisesKeyboardFocusAndTextBridgeEvents ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);
@@ -62,14 +65,14 @@ public sealed class AppleTvKeyboardBridgeTests
 			var textEvent = new TaskCompletionSource<string> (TaskCreationOptions.RunContinuationsAsynchronously);
 			bridge.BridgeEventRaised += line =>
 				{
-				if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
-					{
-					focusEvent.TrySetResult (line);
-					}
-				else if (line.StartsWith (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX, StringComparison.Ordinal))
-					{
-					textEvent.TrySetResult (line);
-					}
+					if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
+						{
+						focusEvent.TrySetResult (line);
+						}
+					else if (line.StartsWith (AppleTvBridgeProtocol.EVENT_TEXT_PREFIX, StringComparison.Ordinal))
+						{
+						textEvent.TrySetResult (line);
+						}
 				};
 
 			host.OpackDevice.RtiText = "Hello";
@@ -88,7 +91,7 @@ public sealed class AppleTvKeyboardBridgeTests
 			}
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task KeyboardFocusLost_RaisesKeyboardFocusZeroEvent ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);
@@ -104,10 +107,10 @@ public sealed class AppleTvKeyboardBridgeTests
 			var focusEvent = new TaskCompletionSource<string> (TaskCreationOptions.RunContinuationsAsynchronously);
 			bridge.BridgeEventRaised += line =>
 				{
-				if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
-					{
-					focusEvent.TrySetResult (line);
-					}
+					if (line.StartsWith (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX, StringComparison.Ordinal))
+						{
+						focusEvent.TrySetResult (line);
+						}
 				};
 
 			SetRtiFocusState (host.OpackDevice, focused: false);
@@ -121,7 +124,7 @@ public sealed class AppleTvKeyboardBridgeTests
 			}
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task SetTextAsync_UpdatesDeviceRtiText ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);

@@ -1,0 +1,9 @@
+{
+  "Title": "AppleTVCrestronDriver Tests",
+  "Status": "Test Host",
+  "Suite": "Unit and Integration Tests",
+  "Run": "Run Tests",
+  "Discovery": "Test Discovery",
+  "Discover": "Discover Tests",
+  "DesktopConnection": "Desktop Runner"
+}

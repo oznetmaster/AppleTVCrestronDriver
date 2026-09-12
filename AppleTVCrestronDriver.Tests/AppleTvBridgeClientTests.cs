@@ -9,7 +9,10 @@ using System.Threading.Tasks;
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -18,10 +21,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// <see cref="AppleTvBridgeServer"/> over loopback TCP, mirroring how the extension driver is
 /// expected to connect to and drive the bridge exposed by the Crestron video server driver.
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvBridgeClientTests
 	{
-	[TestMethod]
+	[Test]
 	public async Task ConnectAsync_ConnectsToServer ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -33,7 +36,7 @@ public sealed class AppleTvBridgeClientTests
 		Assert.IsTrue (client.IsConnected);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task SendCommandAsync_IsDeliveredToServerHandler ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -51,7 +54,7 @@ public sealed class AppleTvBridgeClientTests
 		Assert.AreEqual ("CMD:LAUNCH:com.apple.tv", received.Task.Result);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task BroadcastEvent_IsReceivedByClient_AsLineReceived ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -70,7 +73,7 @@ public sealed class AppleTvBridgeClientTests
 		Assert.AreEqual (AppleTvBridgeProtocol.EVENT_POWER_PREFIX + "On", received.Task.Result);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task BroadcastEvent_AppsLine_IsReceivedByClient_AndDecodable ()
 		{
 		int port = GetFreeLoopbackPort ();
@@ -95,7 +98,7 @@ public sealed class AppleTvBridgeClientTests
 		Assert.AreEqual ("Netflix", decoded[1].Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task Disconnected_IsRaised_WhenServerDisposes ()
 		{
 		int port = GetFreeLoopbackPort ();

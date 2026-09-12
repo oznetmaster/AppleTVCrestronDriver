@@ -1,0 +1,22 @@
+{
+  "SchemaVersion": "2.0",
+  "GeneralInformation": {
+    "MinSdkVersion": "27.0000.0000",
+    "Guid": "054d2c70-77d7-46db-8ab6-b91ed5805d8f",
+    "DeviceType": "Utility",
+    "Manufacturer": "Neil Colvin",
+    "BaseModel": "AppleTVCrestronDriver Tests",
+    "OtherSupportedModels": [],
+    "SupportedSeries": [],
+    "DependencyGroup": "",
+    "Developer": {
+      "Company": "Neil Colvin",
+      "Contact": "Neil Colvin",
+      "Email": "",
+      "Website": "",
+      "PhoneNumber": ""
+    },
+    "DriverVersion": "1.0.000.0008",
+    "VersionDate": "2026-09-12 14:55:47.419"
+  }
+}

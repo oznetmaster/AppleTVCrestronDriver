@@ -10,7 +10,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.Auth;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -21,10 +24,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// <see cref="IAppleTvDriverHost"/>/<see cref="IAppleTvProtocol"/> plus shared pairing session
 /// state).
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvVideoServerLogicTests
 	{
-	[TestInitialize]
+	[SetUp]
 	public void Setup ()
 		{
 		AppleTvPairingSessionState.Instance.CurrentProtocol = null;
@@ -32,7 +35,7 @@ public sealed class AppleTvVideoServerLogicTests
 		AppleTvPairingSessionState.Instance.Clear ();
 		}
 
-	[TestMethod]
+	[Test]
 	public void SaveStoredDevice_then_LoadStoredDevice_RoundTrips_the_device ()
 		{
 		var host = new FakeDriverHost ();
@@ -44,7 +47,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.AreSame (device, logic.LoadStoredDevice ());
 		}
 
-	[TestMethod]
+	[Test]
 	public void LoadStoredDevice_Discards_a_device_with_a_blank_UniqueId ()
 		{
 		var host = new FakeDriverHost { StoredDevice = new AppleTvStoredDevice { Name = "Lounge", UniqueId = "" } };
@@ -53,7 +56,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsNull (logic.LoadStoredDevice ());
 		}
 
-	[TestMethod]
+	[Test]
 	public void LoadStoredDevice_Returns_null_and_logs_When_the_host_throws ()
 		{
 		var host = new FakeDriverHost { ThrowOnGetSetting = true };
@@ -63,7 +66,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsTrue (host.Log.Any (m => m.Contains ("InvalidOperationException")));
 		}
 
-	[TestMethod]
+	[Test]
 	public void ClearPairing_Logs_only_When_a_pairing_session_was_active ()
 		{
 		var host = new FakeDriverHost ();
@@ -74,7 +77,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsFalse (host.Log.Any (m => m.Contains ("Clearing the active pairing session")));
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlePairNowTurnedOff_When_paired_Shows_the_repair_prompt_and_no_pin_needed ()
 		{
 		var host = new FakeDriverHost { StoredDevice = PairedDevice () };
@@ -87,7 +90,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsTrue (host.Log.Any (m => m.Contains ("Pairing is complete; no code is currently needed")));
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlePairNowTurnedOff_When_not_paired_and_no_prior_pin_Prompts_for_a_pin ()
 		{
 		var host = new FakeDriverHost ();
@@ -100,7 +103,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsTrue (host.Log.Any (m => m == "Enter the four-digit pairing code currently displayed on the Apple TV."));
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlePairNowTurnedOff_When_not_paired_and_a_prior_pin_exists_Asks_for_a_new_pin ()
 		{
 		var host = new FakeDriverHost ();
@@ -112,7 +115,7 @@ public sealed class AppleTvVideoServerLogicTests
 		Assert.IsTrue (host.Log.Any (m => m == "Enter the new four-digit pairing code currently displayed on the Apple TV."));
 		}
 
-	[TestMethod]
+	[Test]
 	public void HandlePairNowTurnedOff_Clears_an_active_pairing_session ()
 		{
 		var host = new FakeDriverHost ();
@@ -142,9 +145,15 @@ public sealed class AppleTvVideoServerLogicTests
 		{
 		internal readonly List<string> Log = [];
 
-		internal AppleTvStoredDevice StoredDevice { get; set; }
+		internal AppleTvStoredDevice StoredDevice
+			{
+			get; set;
+			}
 
-		internal bool ThrowOnGetSetting { get; set; }
+		internal bool ThrowOnGetSetting
+			{
+			get; set;
+			}
 
 		public string BaseModel => "FakeModel";
 
@@ -171,7 +180,10 @@ public sealed class AppleTvVideoServerLogicTests
 
 		public string PairingPin { get; set; } = string.Empty;
 
-		public bool IsConnected { get; set; }
+		public bool IsConnected
+			{
+			get; set;
+			}
 
 		public Task ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
 			=> Task.CompletedTask;

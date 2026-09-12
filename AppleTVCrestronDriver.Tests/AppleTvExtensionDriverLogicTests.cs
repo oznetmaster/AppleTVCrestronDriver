@@ -6,7 +6,10 @@ using System.Collections.Generic;
 using AppleTV.CrestronDriver;
 using AppleTV.CrestronDriver.Extension;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -16,10 +19,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// parsing and app-list selection behavior can be unit tested without constructing the real
 /// Crestron <c>ReflectedAttributeDriverEntity</c>/<c>DriverImplementationResources</c> pipeline.
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvExtensionDriverLogicTests
 	{
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_Connected_ReturnsConnectedKind ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_CONNECTED);
@@ -27,7 +30,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (AppleTvExtensionDriverLogic.BridgeLineKind.Connected, result.Kind);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_Disconnected_ReturnsDisconnectedKind ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_DISCONNECTED);
@@ -35,7 +38,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (AppleTvExtensionDriverLogic.BridgeLineKind.Disconnected, result.Kind);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_PowerOn_ReturnsPowerTrue ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_POWER_PREFIX + "On");
@@ -44,7 +47,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsTrue (result.BoolValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_PowerOff_ReturnsPowerFalse ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_POWER_PREFIX + "Off");
@@ -53,7 +56,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsFalse (result.BoolValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_SystemStatus_ReturnsStatusText ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_SYSTEM_STATUS_PREFIX + "Awake");
@@ -62,7 +65,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual ("Awake", result.StringValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_VolumeSupported_ParsesFlag ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_VOLUME_SUPPORTED_PREFIX + "1");
@@ -71,7 +74,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsTrue (result.BoolValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_Mute_ParsesFlag ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX + "1");
@@ -80,7 +83,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsTrue (result.BoolValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_Apps_DecodesAppList ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };
@@ -94,7 +97,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual ("Apple TV", result.Apps[0].Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_KeyboardFocus_ParsesFlag ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (AppleTvBridgeProtocol.EVENT_KEYBOARD_FOCUS_PREFIX + "1");
@@ -103,7 +106,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsTrue (result.BoolValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_Text_DecodesText ()
 		{
 		string encoded = AppleTvBridgeProtocol.EncodeText ("Hello");
@@ -114,7 +117,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual ("Hello", result.StringValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_UnrecognizedLine_ReturnsUnrecognizedKind ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine ("garbage");
@@ -122,7 +125,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (AppleTvExtensionDriverLogic.BridgeLineKind.Unrecognized, result.Kind);
 		}
 
-	[TestMethod]
+	[Test]
 	public void TryParseBridgeLine_NullLine_ReturnsUnrecognizedKind ()
 		{
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (null);
@@ -130,7 +133,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (AppleTvExtensionDriverLogic.BridgeLineKind.Unrecognized, result.Kind);
 		}
 
-	[TestMethod]
+	[Test]
 	public void SortApps_OrdersByNameCaseInsensitively ()
 		{
 		var apps = new List<(string BundleId, string Name)>
@@ -147,7 +150,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual ("Zebra", sorted[2].Name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void DetermineSelection_CurrentSelectionStillPresent_DoesNotChange ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };
@@ -159,7 +162,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.IsNull (name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void DetermineSelection_CurrentSelectionMissing_ClearsSelection ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };
@@ -171,7 +174,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (string.Empty, name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void DetermineSelection_EmptyAppList_ClearsSelection ()
 		{
 		List<(string BundleId, string Name)> apps = [];
@@ -183,7 +186,7 @@ public sealed class AppleTvExtensionDriverLogicTests
 		Assert.AreEqual (string.Empty, name);
 		}
 
-	[TestMethod]
+	[Test]
 	public void DetermineSelection_NoCurrentSelection_DoesNotAutoSelectFirstApp ()
 		{
 		var apps = new List<(string BundleId, string Name)> { ("com.apple.tv", "Apple TV"), ("com.netflix.Netflix", "Netflix") };

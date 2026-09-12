@@ -9,7 +9,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.FakeDevice;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -26,10 +29,10 @@ namespace AppleTVCrestronDriver.Tests;
 /// <c>ConnectionClosedFiresOnProtocolDispose</c>, but drives the real TCP/session layer this
 /// project owns (AppleTvCompanionSession) rather than CompanionApi/CompanionProtocol directly.
 /// </remarks>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvCompanionSessionConnectionClosedTests
 	{
-	[TestMethod]
+	[Test]
 	public async Task ConnectionClosed_WhenHostClosesSocket_FiresWithNullException ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);
@@ -55,7 +58,7 @@ public sealed class AppleTvCompanionSessionConnectionClosedTests
 			}
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task ConnectionClosed_DoesNotFire_OnOwnDispose ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);

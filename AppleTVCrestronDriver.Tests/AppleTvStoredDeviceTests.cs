@@ -5,14 +5,17 @@ using System;
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
-[TestClass]
+[TestFixture]
 public sealed class AppleTvStoredDeviceTests
 	{
-	[TestMethod]
+	[Test]
 	public void IsPaired_AllCredentialsPresent_ReturnsTrue ()
 		{
 		AppleTvStoredDevice device = new ()
@@ -26,7 +29,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsTrue (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void IsPaired_MissingLtpk_ReturnsFalse ()
 		{
 		AppleTvStoredDevice device = new ()
@@ -40,7 +43,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsFalse (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void IsPaired_MissingLtsk_ReturnsFalse ()
 		{
 		AppleTvStoredDevice device = new ()
@@ -54,7 +57,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsFalse (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void IsPaired_MissingAtvId_ReturnsFalse ()
 		{
 		AppleTvStoredDevice device = new ()
@@ -68,7 +71,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsFalse (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void IsPaired_MissingClientId_ReturnsFalse ()
 		{
 		AppleTvStoredDevice device = new ()
@@ -82,7 +85,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsFalse (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void IsPaired_NoCredentials_ReturnsFalse ()
 		{
 		AppleTvStoredDevice device = new ();
@@ -90,7 +93,7 @@ public sealed class AppleTvStoredDeviceTests
 		Assert.IsFalse (device.IsPaired);
 		}
 
-	[TestMethod]
+	[Test]
 	public void ToCredentials_ReturnsCredentialsFromStoredValues ()
 		{
 		byte[] ltpk = [1, 2, 3];

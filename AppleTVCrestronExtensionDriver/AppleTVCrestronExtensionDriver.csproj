@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net472</TargetFramework>
@@ -105,10 +105,16 @@
 		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">true</PackageDriverIgnoreExitCode>
 	</PropertyGroup>
 
-	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1')">
+	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="'$(SkipDriverPackaging)' != 'true' And Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1')">
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronExtensionDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
 	</Target>
 
+	<!-- Test references require the merged assembly. Copying an unchanged compiler output
+	     can retain an older timestamp than the patched output and otherwise skip merging. -->
+	<Target Name="PrepareTestDriverMerge" BeforeTargets="MergeDependencies" Condition="'$(SkipDriverPackaging)' == 'true' And '$(DesignTimeBuild)' != 'true'">
+		<Copy SourceFiles="@(IntermediateAssembly)" DestinationFiles="$(TargetPath)" />
+		<Touch Files="$(TargetPath)" />
+	</Target>
 	<Target Name="MergeDependencies" AfterTargets="Build">
 		<ItemGroup>
 			<MergeInputs Include="$(TargetPath)" />
@@ -128,7 +134,7 @@
 		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\PatchMergedAssembly.ps1&quot; -AssemblyPath &quot;$(TargetPath)&quot; -OutputPath &quot;$(TargetDir)patched\$(AssemblyName).dll&quot;" ContinueOnError="false" />
 	</Target>
 
-	<Target Name="PackageDriver" AfterTargets="MergeDependencies">
+	<Target Name="PackageDriver" AfterTargets="MergeDependencies" Condition="'$(SkipDriverPackaging)' != 'true'">
 		<RemoveDir Directories="$(TargetDir)patched\IncludeInPkg" />
 		<ItemGroup>
 			<IncludeInPkgFiles Include="$(MSBuildProjectDirectory)\IncludeInPkg\**\*" Exclude="$(MSBuildProjectDirectory)\IncludeInPkg\**\*.xsd" />
@@ -144,7 +150,7 @@
 		 project would silently SFTP a .pkg to the real processor in CrestronHomeIP, purely because
 		 AppleTVCrestronExtensionDriver.csproj.user defaults DeployAfterBuild to true for convenience
 		 during normal interactive Visual Studio use. -->
-	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != '' And '$(BuildingInsideVisualStudio)' == 'true'">
+	<Target Name="DeployDriver" AfterTargets="PackageDriver" Condition="'$(SkipDriverPackaging)' != 'true' And '$(DeployAfterBuild)' == 'true' And '$(Configuration)' == 'Debug' And '$(CrestronHomeIP)' != '' And '$(BuildingInsideVisualStudio)' == 'true'">
 		<PropertyGroup>
 			<PkgFile>$(TargetDir)$(AssemblyName).pkg</PkgFile>
 			<DeployScriptPath>$(MSBuildProjectDirectory)\Deploy.ps1</DeployScriptPath>

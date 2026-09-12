@@ -1,0 +1,157 @@
+# Copyright (c) 2026 Neil Colvin.
+# Licensed under the MIT License with Commons Clause; see LICENSE.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  nunit:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: AppleTVCrestronDriver
+    env:
+      MANIFESTUTIL_VERSION: 27.0.24
+      OFFICE_CORE_VERSION: 12.0.0
+      WORD_INTEROP_VERSION: 15.0.4797.1004
+      NET472_REFERENCE_ASSEMBLIES: C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2
+      NETFX_RUNTIME_DIR: C:\Windows\Microsoft.NET\Framework64\v4.0.30319
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: AppleTVCrestronDriver
+      - uses: actions/checkout@v4
+        with:
+          repository: oznetmaster/AppleTVControlLibrary
+          ref: 5de886284cda4a6dd72ea6429189ce930470b41a
+          path: AppleTVControlLibrary
+      - uses: actions/checkout@v4
+        with:
+          repository: oznetmaster/CrestronHomeNUnit
+          ref: 4fc6dc19b4b33ca578b4746a8f3b96b419a60746
+          path: CrestronHomeNUnit
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
+            8.0.x
+      - uses: microsoft/setup-msbuild@v2
+      - uses: NuGet/setup-nuget@v2
+      - name: Install ILRepack
+        run: |
+          dotnet tool install --global dotnet-ilrepack --version 2.0.45
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+      - name: Install ManifestUtil package
+        shell: pwsh
+        run: |
+          nuget install Crestron.DeviceDrivers.ManifestUtil -Version $env:MANIFESTUTIL_VERSION -OutputDirectory "$env:RUNNER_TEMP\nuget-tools"
+
+      - name: Install Word interop package
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Office.Interop.Word -Version $env:WORD_INTEROP_VERSION -OutputDirectory "$env:RUNNER_TEMP\nuget-tools"
+
+      - name: Install Office core package
+        shell: pwsh
+        run: |
+          nuget install Microsoft.Office.Core -Version $env:OFFICE_CORE_VERSION -OutputDirectory "$env:RUNNER_TEMP\nuget-tools"
+
+      - name: Resolve ManifestUtil path
+        id: manifestutil
+        shell: pwsh
+        run: |
+          $toolRoot = Join-Path $env:RUNNER_TEMP "nuget-tools\Crestron.DeviceDrivers.ManifestUtil.$env:MANIFESTUTIL_VERSION"
+          $manifestUtil = Get-ChildItem -Path $toolRoot -Filter ManifestUtil.exe -Recurse | Select-Object -First 1
+          if ($null -eq $manifestUtil) {
+            throw "ManifestUtil.exe was not found under $toolRoot"
+          }
+
+          $wordInteropRoot = Join-Path $env:RUNNER_TEMP "nuget-tools\Microsoft.Office.Interop.Word.$env:WORD_INTEROP_VERSION"
+          $wordInterop = Get-ChildItem -Path $wordInteropRoot -Filter Microsoft.Office.Interop.Word.dll -Recurse | Select-Object -First 1
+          if ($null -eq $wordInterop) {
+            throw "Microsoft.Office.Interop.Word.dll was not found under $wordInteropRoot"
+          }
+
+          $officeCoreRoot = Join-Path $env:RUNNER_TEMP "nuget-tools\Microsoft.Office.Core.$env:OFFICE_CORE_VERSION"
+          $officeCore = Get-ChildItem -Path $officeCoreRoot -Filter office.dll -Recurse | Select-Object -First 1
+          if ($null -eq $officeCore) {
+            throw "office.dll was not found under $officeCoreRoot"
+          }
+
+          Copy-Item $wordInterop.FullName (Join-Path $manifestUtil.Directory.FullName 'Microsoft.Office.Interop.Word.dll') -Force
+          Copy-Item $officeCore.FullName (Join-Path $manifestUtil.Directory.FullName 'office.dll') -Force
+
+          $manifestUtilConfig = @'
+          <?xml version="1.0" encoding="utf-8"?>
+          <configuration>
+            <runtime>
+              <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">
+                <dependentAssembly>
+                  <assemblyIdentity name="office" publicKeyToken="71e9bce111e9429c" culture="neutral" />
+                  <bindingRedirect oldVersion="0.0.0.0-15.0.0.0" newVersion="12.0.0.0" />
+                </dependentAssembly>
+              </assemblyBinding>
+            </runtime>
+          </configuration>
+          '@
+          Set-Content -Path (Join-Path $manifestUtil.Directory.FullName 'ManifestUtil.exe.config') -Value $manifestUtilConfig -Encoding UTF8
+
+          "exe_path=$($manifestUtil.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+
+      - name: Restore private desktop platform dependency
+        env:
+          COMPACT_1: ${{ secrets.CI_COMPACT_JSON_1 }}
+          COMPACT_2: ${{ secrets.CI_COMPACT_JSON_2 }}
+          COMPACT_3: ${{ secrets.CI_COMPACT_JSON_3 }}
+          COMPACT_4: ${{ secrets.CI_COMPACT_JSON_4 }}
+          COMPACT_5: ${{ secrets.CI_COMPACT_JSON_5 }}
+          COMPACT_6: ${{ secrets.CI_COMPACT_JSON_6 }}
+        run: |
+          $encoded = $env:COMPACT_1 + $env:COMPACT_2 + $env:COMPACT_3 + $env:COMPACT_4 + $env:COMPACT_5 + $env:COMPACT_6
+          if ([string]::IsNullOrEmpty($encoded)) { throw 'Desktop SDK dependency is unavailable. Fork PRs require a trusted maintainer CI run.' }
+          $inputStream = [IO.MemoryStream]::new([Convert]::FromBase64String($encoded))
+          $gzip = [IO.Compression.GZipStream]::new($inputStream, [IO.Compression.CompressionMode]::Decompress)
+          $output = [IO.File]::Create((Join-Path $PWD 'Newtonsoft.Json.Compact.dll'))
+          try { $gzip.CopyTo($output) } finally { $output.Dispose(); $gzip.Dispose(); $inputStream.Dispose() }
+          if ((Get-FileHash Newtonsoft.Json.Compact.dll -Algorithm SHA256).Hash -ne '8b9567057419e97b20702a4364283b0b5c34d5e00e006e329e1c92b74638ef90') { throw 'Unexpected desktop SDK dependency checksum.' }
+      - name: Run all 97 NUnit tests
+        run: |
+          dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Release --logger "trx;LogFileName=tests.trx" --results-directory TestResults /p:MergeDependenciesContinueOnError=false
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          [xml]$results = Get-Content TestResults/tests.trx -Raw
+          $counts = $results.TestRun.ResultSummary.Counters
+          if ([int]$counts.total -ne 97 -or [int]$counts.passed -ne 97) { throw "Expected 97 passing tests: $($counts.OuterXml)" }
+      - name: Build processor test package
+        run: |
+          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Run packaged suite twice
+        run: |
+          $output = Join-Path $PWD 'AppleTVCrestronDriver.ProcessorTests/bin/Release/net472'
+          $extracted = Join-Path $env:RUNNER_TEMP 'appletv-package'
+          [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $output 'AppleTVCrestronDriver.ProcessorTests.pkg'), $extracted)
+          $assembly = Get-ChildItem $extracted -Recurse -Filter AppleTVCrestronDriver.ProcessorTests.dll | Select-Object -First 1
+          & (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') $assembly.FullName (Join-Path $PWD 'TestResults/processor') 97 --run-twice
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: AppleTVCrestronDriver/TestResults
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AppleTVCrestronDriver-processor-tests
+          path: AppleTVCrestronDriver/AppleTVCrestronDriver.ProcessorTests/bin/Release/net472/AppleTVCrestronDriver.ProcessorTests.pkg
+          if-no-files-found: error

@@ -1,0 +1,65 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT License with Commons Clause; see LICENSE in the repository root. -->
+<Project>
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" />
+  <Import Project="$(MSBuildProjectName).Local.targets" Condition="Exists('$(MSBuildProjectName).Local.targets')" />
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>false</IsTestProject>
+    <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
+    <ProcessorTestSdkRoot Condition="'$(ProcessorTestSdkRoot)' == ''">$(MSBuildProjectDirectory)\..\..\CrestronHomeNUnit</ProcessorTestSdkRoot>
+    <BuildProcessorTestPackages Condition="'$(BuildProcessorTestPackages)' == '' And '$(BuildingInsideVisualStudio)' == 'true'">true</BuildProcessorTestPackages>
+    <BuildProcessorTestPackages Condition="'$(BuildProcessorTestPackages)' == ''">false</BuildProcessorTestPackages>
+    <AssemblyName>AppleTVCrestronDriver.ProcessorTests</AssemblyName>
+    <RootNamespace>CrestronHomeNUnit.Driver</RootNamespace>
+    <Version>1.0.0</Version>
+    <ProcessorExpectedTestCount>97</ProcessorExpectedTestCount>
+  </PropertyGroup>
+  <Import Project="$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props" Condition="'$(BuildProcessorTestPackages)' == 'true' And Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props')" />
+  <ItemGroup Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <ProjectReference Include="..\AppleTVCrestronDriver.Tests\AppleTVCrestronDriver.Tests.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
+    <!-- Preserve test-build properties on SDK-generated transitive references. -->
+    <ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
+    <ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
+  </ItemGroup>
+  <Import Project="$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.targets" Condition="'$(BuildProcessorTestPackages)' == 'true' And Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.targets')" />
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
+  <PropertyGroup Condition="'$(BuildProcessorTestPackages)' != 'true'">
+    <BuildDependsOn>SkipProcessorPackage</BuildDependsOn>
+    <RebuildDependsOn>SkipProcessorPackage</RebuildDependsOn>
+  </PropertyGroup>
+  <Target Name="SkipProcessorPackage">
+    <Message Importance="high" Text="Processor packaging skipped. Build in Visual Studio or set BuildProcessorTestPackages=true on Windows." />
+  </Target>
+  <Target Name="CheckProcessorTestSdk" BeforeTargets="PrepareForBuild" Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <Error Condition="!Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.targets')" Text="Set ProcessorTestSdkRoot to the CrestronHomeNUnit checkout containing the processor package SDK." />
+  </Target>
+  <ItemGroup Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <ProcessorTestData Include="..\LICENSE" TargetPath="Licenses\Package\LICENSE" />
+    <ProcessorTestData Include="THIRD-PARTY-NOTICES.md" TargetPath="Licenses\Package\THIRD-PARTY-NOTICES.md" />
+    <ProcessorTestData Include="licenses\*" TargetPath="Licenses\Package\licenses\%(Filename)%(Extension)" />
+  </ItemGroup>
+  <!-- The source suite supports desktop adapters; the embedded host only needs NUnit itself.
+       Filter resolved tooling here so local test SDK upgrades do not change the processor runner. -->
+  <Target Name="ExcludeDesktopTestTooling" BeforeTargets="MergeDependencies" Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <ItemGroup>
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="$([System.String]::Copy('%(ReferenceCopyLocalPaths.NuGetPackageId)').ToLowerInvariant().StartsWith('microsoft.testing.')) Or $([System.String]::Copy('%(ReferenceCopyLocalPaths.NuGetPackageId)').ToLowerInvariant().StartsWith('microsoft.testplatform.')) Or '%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'Microsoft.ApplicationInsights' Or '%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'Microsoft.CodeCoverage' Or '%(ReferenceCopyLocalPaths.NuGetPackageId)' == 'NUnit3TestAdapter'" />
+      <ReferenceCopyLocalPaths Remove="@(ReferenceCopyLocalPaths)" Condition="'%(ReferenceCopyLocalPaths.Filename)' == 'Newtonsoft.Json.Compact'" />
+    </ItemGroup>
+  </Target>
+  <!-- Compact JSON is supplied by the processor. The desktop validator needs a
+       private probe copy, outside the package and without modifying the shared SDK. -->
+  <Target Name="PrepareAppleTvPackageValidator" BeforeTargets="ValidateProcessorPackage" DependsOnTargets="BuildProcessorPackageValidator" Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <ItemGroup>
+      <AppleTvValidatorFiles Include="$(ProcessorTestSdkRoot)\ProcessorTestPackage.Validation\bin\$(Configuration)\net472\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(AppleTvValidatorFiles)" DestinationFolder="$(TargetDir)validation-host" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\Newtonsoft.Json.Compact.dll" DestinationFolder="$(TargetDir)validation-host" SkipUnchangedFiles="true" />
+    <PropertyGroup>
+      <ProcessorPackageValidator>$(TargetDir)validation-host\ProcessorTestPackage.Validation.exe</ProcessorPackageValidator>
+    </PropertyGroup>
+  </Target>
+  <Target Name="RemoveLegacyProductionManifest" AfterTargets="MergeDependencies" BeforeTargets="StagePackageFiles" Condition="'$(BuildProcessorTestPackages)' == 'true' And '$(DesignTimeBuild)' != 'true'">
+    <Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\RemoveProductionManifest.ps1&quot; -AssemblyPath &quot;$(PatchedDriverPath)&quot; -CecilPath &quot;$(IlRepackToolDirectory)\Mono.Cecil.dll&quot;" />
+  </Target>
+</Project>

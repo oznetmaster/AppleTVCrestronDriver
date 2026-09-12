@@ -106,7 +106,7 @@ Typical release flow:
 
 ## Testing
 
-`AppleTVCrestronDriver.Tests` is an MSTest unit/integration test project covering the driver logic that
+`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 97 tests covering the driver logic that
 does not require a live Crestron control system or a physical Apple TV. Driver orchestration logic
 (pairing, stored-device persistence, connection/reconnect handling, and related state) has been
 extracted behind small internal interfaces so it can be exercised directly by this suite. Coverage
@@ -127,8 +127,41 @@ repository during development.
 ### Running the tests
 
 ```powershell
-dotnet test AppleTVCrestronDriver.slnx
+dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Debug
 ```
+
+All **97 tests have passed on Windows and on a Crestron Home processor**. The four simulated
+pairing/session tests took approximately 10–11 seconds each on the processor; the cause has not
+been profiled. They perform real pairing work on both sides of the simulated connection.
+
+The **Tests** GitHub Actions workflow runs on pushes and pull requests. It requires all 97 NUnit
+tests to pass, builds the processor package, and runs all 97 tests from the packaged assembly twice
+on Windows. Its dependency checkouts are pinned. CI uploads test results and the validation package
+as workflow artifacts; it does not create a GitHub release or publish NuGet packages.
+
+Desktop execution also requires the Crestron-compatible `Newtonsoft.Json.Compact.dll`
+(assembly version 4.0.8.0, public key token 1099c178b3b54c3b) in the repository root.
+Use your SDK/runtime copy; it is locally excluded and is never packaged or published here.
+Maintainer CI reconstructs the tested copy from private Actions secrets and verifies its SHA-256.
+Fork pull requests cannot access those secrets and need a trusted maintainer CI run before merging.
+
+Visual Studio Test Explorer uses the NUnit adapter. Tests target `net472`, use a fresh fixture
+instance for each test, and run serially to preserve the existing test isolation. Test project builds
+merge the driver dependencies but skip production driver version bumps, packaging and deployment.
+
+### Running the same suite on Crestron Home
+
+The solution also includes [AppleTVCrestronDriver.ProcessorTests](AppleTVCrestronDriver.ProcessorTests/README.md).
+Build that project in **Debug** in Visual Studio to create and deploy the standalone
+**AppleTVCrestronDriver Tests** package, using private local deployment settings. Find it in
+the **Utility** category in Crestron Home Configure. Run its 97 tests from its tile or discover
+the package in the Windows NUnit runner. This suite uses simulated Apple TV services and loopback
+connections; it needs no Apple TV pairing credentials or live-test settings.
+
+The test package has its own identity and test tile. The production drivers' UIs are not installed
+by it. Its `.pkg` is a separate development artifact, not a NuGet package and not part of the
+production driver release workflow. Processor packaging also requires a sibling
+[CrestronHomeNUnit](https://github.com/oznetmaster/CrestronHomeNUnit) checkout.
 
 ### Dependency on AppleTVControlLibrary source
 

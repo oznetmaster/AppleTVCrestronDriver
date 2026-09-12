@@ -1,0 +1,13 @@
+{
+  "Name": "AppleTVCrestronDriver Tests",
+  "Port": 0,
+  "Suites": [
+    {
+      "Id": "appletv-driver",
+      "Name": "AppleTVCrestronDriver Tests — Unit and Integration Tests",
+      "FilterXml": "<filter><namespace re='1'>^AppleTVCrestronDriver[.]Tests($|[.])</namespace></filter>",
+      "ManualOnly": false,
+      "ExpectedCount": 97
+    }
+  ]
+}

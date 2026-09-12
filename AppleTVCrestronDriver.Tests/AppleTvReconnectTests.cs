@@ -10,7 +10,10 @@ using AppleTV.CrestronDriver;
 
 using AppleTvControlLibrary.Auth;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -19,17 +22,17 @@ namespace AppleTVCrestronDriver.Tests;
 /// retry schedule off-box, including abandoning the schedule when a newer driver instance has taken
 /// over and stopping as soon as reconnection succeeds.
 /// </summary>
-[TestClass]
+[TestFixture]
 public sealed class AppleTvReconnectTests
 	{
-	[TestInitialize]
+	[SetUp]
 	public void Setup ()
 		{
 		AppleTvPairingSessionState.Instance.CurrentProtocol = null;
 		AppleTvPairingSessionState.Instance.CurrentDriver = null;
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task Reconnect_follows_the_bounded_backoff_schedule ()
 		{
 		var delays = new List<TimeSpan> ();
@@ -39,8 +42,8 @@ public sealed class AppleTvReconnectTests
 
 		var logic = new AppleTvVideoServerLogic (host, () => host, duration =>
 			{
-			delays.Add (duration);
-			return Task.CompletedTask;
+				delays.Add (duration);
+				return Task.CompletedTask;
 			});
 
 		await logic.HandleCompanionDisconnectedAsync (protocol, _ => Task.CompletedTask);
@@ -51,7 +54,7 @@ public sealed class AppleTvReconnectTests
 		Assert.IsTrue (host.Log.Any (m => m.Contains ("Could not reconnect")));
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task Reconnect_abandons_when_a_newer_instance_takes_over ()
 		{
 		var delays = new List<TimeSpan> ();
@@ -61,8 +64,8 @@ public sealed class AppleTvReconnectTests
 
 		var logic = new AppleTvVideoServerLogic (host, () => host, duration =>
 			{
-			delays.Add (duration);
-			return Task.CompletedTask;
+				delays.Add (duration);
+				return Task.CompletedTask;
 			});
 
 		await logic.HandleCompanionDisconnectedAsync (stale, _ => Task.CompletedTask);
@@ -71,7 +74,7 @@ public sealed class AppleTvReconnectTests
 		Assert.IsTrue (host.Log.Any (m => m.Contains ("newer driver instance")));
 		}
 
-	[TestMethod]
+	[Test]
 	public async Task Reconnect_stops_as_soon_as_the_connection_is_restored ()
 		{
 		var delays = new List<TimeSpan> ();
@@ -81,14 +84,14 @@ public sealed class AppleTvReconnectTests
 
 		var logic = new AppleTvVideoServerLogic (host, () => host, duration =>
 			{
-			delays.Add (duration);
-			return Task.CompletedTask;
+				delays.Add (duration);
+				return Task.CompletedTask;
 			});
 
 		await logic.HandleCompanionDisconnectedAsync (protocol, p =>
 			{
-			((FakeProtocol) p).IsConnected = true;
-			return Task.CompletedTask;
+				((FakeProtocol)p).IsConnected = true;
+				return Task.CompletedTask;
 			});
 
 		Assert.AreEqual (1, delays.Count);
@@ -118,7 +121,10 @@ public sealed class AppleTvReconnectTests
 
 		public string PairingPin { get; set; } = string.Empty;
 
-		public bool IsConnected { get; set; }
+		public bool IsConnected
+			{
+			get; set;
+			}
 
 		public Task ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
 			=> Task.CompletedTask;

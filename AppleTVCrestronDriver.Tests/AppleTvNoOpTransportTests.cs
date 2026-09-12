@@ -3,14 +3,17 @@
 
 using AppleTV.CrestronDriver;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
+using NUnit.Framework.Legacy;
+
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 
 namespace AppleTVCrestronDriver.Tests;
 
-[TestClass]
+[TestFixture]
 public sealed class AppleTvNoOpTransportTests
 	{
-	[TestMethod]
+	[Test]
 	public void SetConnectionState_True_SetsIsConnectedAndInvokesConnectionChanged ()
 		{
 		AppleTvNoOpTransport transport = new ();
@@ -23,7 +26,7 @@ public sealed class AppleTvNoOpTransportTests
 		Assert.AreEqual (true, raisedValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void SetConnectionState_False_SetsIsConnectedAndInvokesConnectionChanged ()
 		{
 		AppleTvNoOpTransport transport = new ();
@@ -37,7 +40,7 @@ public sealed class AppleTvNoOpTransportTests
 		Assert.AreEqual (false, raisedValue);
 		}
 
-	[TestMethod]
+	[Test]
 	public void SetConnectionState_NoSubscriber_DoesNotThrow ()
 		{
 		AppleTvNoOpTransport transport = new ();
