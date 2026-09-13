@@ -24,7 +24,7 @@ The package owns a standalone test tile, distinct from either production driver.
 
 The processor assigns the TCP port; the package advertises it for discovery. No reserved port or separate NUnit host deployment is needed. No `LiveTestSettings.json`, Apple TV credentials or test inputs are required. These simulated tests do not establish production pairing or install the original drivers' UIs.
 
-The build checks that all 97 tests are discoverable after merging. Desktop validation uses a private output copy of Compact JSON, which remains a platform dependency and is not embedded in the test package. Passing on Windows still needs confirmation on the processor's Mono runtime.
+The build checks that all 116 tests are discoverable after merging. Desktop validation uses a private output copy of Compact JSON, which remains a platform dependency and is not embedded in the test package. Passing on Windows still needs confirmation on the processor's Mono runtime.
 
 ## Distribution and licenses
 

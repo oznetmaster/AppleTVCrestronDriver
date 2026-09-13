@@ -1,6 +1,6 @@
 # AppleTVCrestronDriver
 
-See the [changelog](CHANGELOG.md) for release history and the [draft release notes](RELEASE-NOTES.md) for the next driver update. Driver releases are made for runtime fixes or dependency changes; adding tests alone does not require a driver release.
+See the [changelog](CHANGELOG.md) for release history and the [release notes](RELEASE-NOTES.md) for the current driver update. Driver releases are made for runtime fixes or dependency changes; adding tests alone does not require a driver release.
 
 A **Crestron Home** Video Server driver that controls an **Apple TV** over its **Companion Link** protocol, providing pairing, connection status, and remote-control (arrow keys, select, menu, home, play/pause, power) directly from the Crestron Home app.
 
@@ -141,7 +141,7 @@ merge the driver dependencies but skip production driver version bumps, packagin
 The solution also includes [AppleTVCrestronDriver.ProcessorTests](AppleTVCrestronDriver.ProcessorTests/README.md).
 Build that project in **Debug** in Visual Studio to create and deploy the standalone
 **AppleTVCrestronDriver Tests** package, using private local deployment settings. Find it in
-the **Utility** category in Crestron Home Configure. Run its 97 tests from its tile or discover
+the **Utility** category in Crestron Home Configure. Run its 105 unit tests and 11 processor lifecycle tests from its tile or discover
 the package in the Windows NUnit runner. This suite uses simulated Apple TV services and loopback
 connections; it needs no Apple TV pairing credentials or live-test settings.
 
