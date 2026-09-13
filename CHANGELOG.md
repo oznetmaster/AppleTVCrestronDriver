@@ -11,6 +11,8 @@ under the same version tag.
 
 ## 1.4.3 — 2026-09-14
 
+The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
+
 [Driver release notes](RELEASE-NOTES.md). Test-only changes do not require a driver release.
 
 - Prevent superseded discovery and connection attempts from saving device identity or reporting an obsolete paired state. Add saved-pairing, shared-credential, configuration replacement and retry recovery regression tests.
@@ -151,4 +153,3 @@ under the same version tag.
 - Persisted pairing credentials across driver/processor reinitialization.
 - Automatic reconnection with online/offline status reporting.
 - Remote control support: arrow keys, Select, Menu, Home, Back, discrete power, and Play/Pause.
-The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.

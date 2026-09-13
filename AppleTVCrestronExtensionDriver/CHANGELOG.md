@@ -10,6 +10,8 @@ Both packages are released together from this repository under the same version 
 
 ## 1.4.3 — 2026-09-14
 
+The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
+
 ### Fixed
 
 - Initialize the app list as an empty collection rather than leaving it uninitialized when no apps have been reported.
@@ -20,7 +22,7 @@ Both packages are released together from this repository under the same version 
 - Add 11 SDK lifecycle tests shared between desktop validation and the net472 processor package, including configuration cleanup and controller state behavior.
 - Align Debug build versions and three-part CI release tags with the driver manifest.
 
-These runtime fixes justify a driver patch; test additions alone do not. See the shared [draft release notes](../RELEASE-NOTES.md).
+These runtime fixes justify a driver patch; test additions alone do not. See the shared [release notes](../RELEASE-NOTES.md).
 
 ## [1.4.1] - 2026-08-18
 
@@ -94,5 +96,3 @@ These runtime fixes justify a driver patch; test additions alone do not. See the
 - Initial public release of the Crestron Home Entity V2 Extension driver for Apple TV, providing
   app selection and remote-control UI driven over a loopback bridge to the paired
   AppleTVCrestronDriver Video Server driver.
-
-The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
