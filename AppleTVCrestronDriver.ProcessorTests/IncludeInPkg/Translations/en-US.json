@@ -5,5 +5,6 @@
   "Run": "Run Tests",
   "Discovery": "Test Discovery",
   "Discover": "Discover Tests",
-  "DesktopConnection": "Desktop Runner"
+  "DesktopConnection": "Desktop Runner",
+  "Lifecycle": "Extension lifecycle tests"
 }

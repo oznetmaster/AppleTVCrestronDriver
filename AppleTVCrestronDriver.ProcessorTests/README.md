@@ -24,10 +24,17 @@ The package owns a standalone test tile, distinct from either production driver.
 
 The processor assigns the TCP port; the package advertises it for discovery. No reserved port or separate NUnit host deployment is needed. No `LiveTestSettings.json`, Apple TV credentials or test inputs are required. These simulated tests do not establish production pairing or install the original drivers' UIs.
 
-The build checks that all 97 tests are discoverable after merging. Desktop validation uses a private output copy of Compact JSON, which remains a platform dependency and is not embedded in the test package. All 97 tests have also passed on the processor's Mono runtime. The four pairing/session tests took approximately 10–11 seconds each; their timing has not been profiled.
+The build checks that all 97 tests are discoverable after merging. Desktop validation uses a private output copy of Compact JSON, which remains a platform dependency and is not embedded in the test package. Passing on Windows still needs confirmation on the processor's Mono runtime.
 
 ## Distribution and licenses
 
 This is a development `.pkg`, not a NuGet package. The existing production release workflow does not publish it. See [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) and the bundled `Licenses` directory. Driver and fixture source retain the repository's MIT with Commons Clause license; the NUnit host and third-party dependencies retain their own licenses.
 
 Apple, Apple TV, Crestron and Crestron Home are trademarks of their respective owners. This independent project is not affiliated with or endorsed by Apple or Crestron. Crestron SDK components remain subject to Crestron's SDK license agreement.
+
+
+## Expanded coverage
+
+Real extension entities publish bridge events, maintain connection and tile state, clear keyboard text when focus is lost, reject missing device names before storage access, and clear device-specific UI state when configuration is removed.
+
+The package contains 105 offline cases and 11 lifecycle cases. Lifecycle tests exercise newly constructed test entities, not the installed production driver. Both suites are selectable in the Windows runner and through the standalone Utility tile. Processor hardware validation remains required.

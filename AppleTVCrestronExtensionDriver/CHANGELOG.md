@@ -8,6 +8,20 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
+## 1.4.2 — 2026-09-14
+
+### Fixed
+
+- Initialize the app list as an empty collection rather than leaving it uninitialized when no apps have been reported.
+- Clearing configuration now resets the device label, app list and selection, keyboard focus/text, volume capability, mute and power state before reporting the controller unavailable.
+
+### Tests and build process
+
+- Add 11 SDK lifecycle tests shared between desktop validation and the net472 processor package, including configuration cleanup and controller state behavior.
+- Align Debug build versions and three-part CI release tags with the driver manifest.
+
+These runtime fixes justify a driver patch; test additions alone do not. See the shared [draft release notes](../RELEASE-NOTES.md).
+
 ## [1.4.1] - 2026-08-18
 
 ### Fixed

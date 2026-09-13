@@ -13,11 +13,13 @@
     <AssemblyName>AppleTVCrestronDriver.ProcessorTests</AssemblyName>
     <RootNamespace>CrestronHomeNUnit.Driver</RootNamespace>
     <Version>1.0.0</Version>
-    <ProcessorExpectedTestCount>97</ProcessorExpectedTestCount>
+    <ProcessorExpectedTestCount>116</ProcessorExpectedTestCount>
   </PropertyGroup>
   <Import Project="$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props" Condition="'$(BuildProcessorTestPackages)' == 'true' And Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props')" />
   <ItemGroup Condition="'$(BuildProcessorTestPackages)' == 'true'">
     <ProjectReference Include="..\AppleTVCrestronDriver.Tests\AppleTVCrestronDriver.Tests.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
+    <ProcessorTestData Include="../AppleTVCrestronExtensionDriver/IncludeInPkg/**/*" Exclude="../AppleTVCrestronExtensionDriver/IncludeInPkg/**/*.xsd" TargetPath="ExtensionTestData/%(RecursiveDir)%(Filename)%(Extension)" />
+    <ProcessorTestData Include="../AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.json" TargetPath="ExtensionTestData/DriverDefinition.json" />
     <!-- Preserve test-build properties on SDK-generated transitive references. -->
     <ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
     <ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />

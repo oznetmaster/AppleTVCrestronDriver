@@ -136,6 +136,16 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			DisposeBridgeClient ();
 			_appleTvName = string.Empty;
 			_lastUniqueId = string.Empty;
+			DeviceLabel = "Apple TV Remote";
+			ApplyAppList ([]);
+			SelectedApp = string.Empty;
+			SelectedAppName = string.Empty;
+			KeyboardFocused = false;
+			ApplyKeyboardTextFromDevice (string.Empty);
+			VolumeControlSupported = false;
+			MuteIsOn = false;
+			PowerIsOn = false;
+			PowerStatusLabel = "Unknown";
 			SetUnavailableState ("Configuration cleared");
 			return null;
 			}
@@ -302,11 +312,11 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		int requestedVersion = Volatile.Read (ref _refreshStatusRequestVersion);
 		_ = Task.Run (async () =>
 			{
-			await Task.Delay (TimeSpan.FromSeconds (5)).ConfigureAwait (false);
-			if (Volatile.Read (ref _refreshStatusRequestVersion) == requestedVersion)
-				{
-				LogWarning ("No EVT:SYSSTATUS: reply was received within 5 seconds of sending CMD:REFRESHSTATUS; PowerStatusLabel will remain stale.");
-				}
+				await Task.Delay (TimeSpan.FromSeconds (5)).ConfigureAwait (false);
+				if (Volatile.Read (ref _refreshStatusRequestVersion) == requestedVersion)
+					{
+					LogWarning ("No EVT:SYSSTATUS: reply was received within 5 seconds of sending CMD:REFRESHSTATUS; PowerStatusLabel will remain stale.");
+					}
 			});
 		}
 
@@ -403,7 +413,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 		lock (_stateLock)
 			{
-			if (_apps.Count == apps.Count && _apps.SequenceEqual (apps))
+			if (AppList != null && _apps.Count == apps.Count && _apps.SequenceEqual (apps))
 				{
 				return;
 				}

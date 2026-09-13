@@ -1,5 +1,7 @@
 # AppleTVCrestronDriver
 
+See the [changelog](CHANGELOG.md) for release history and the [draft release notes](RELEASE-NOTES.md) for the next driver update. Driver releases are made for runtime fixes or dependency changes; adding tests alone does not require a driver release.
+
 A **Crestron Home** Video Server driver that controls an **Apple TV** over its **Companion Link** protocol, providing pairing, connection status, and remote-control (arrow keys, select, menu, home, play/pause, power) directly from the Crestron Home app.
 
 > **Trademark notice and disclaimer:** Apple, Apple TV, and tvOS are trademarks of Apple Inc., registered in the U.S. and other countries. This project is an independent, unofficial driver and is **not affiliated with, endorsed by, sponsored by, or approved by Apple Inc.** in any way. "Apple TV" and other Apple product names are used solely to describe compatibility and interoperability. No Apple software, assets, or confidential documentation are included in or derived for this repository. Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is not affiliated with, endorsed by, or sponsored by Crestron Electronics, Inc.
@@ -106,7 +108,7 @@ Typical release flow:
 
 ## Testing
 
-`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 97 tests covering the driver logic that
+`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 105 tests covering the driver logic that
 does not require a live Crestron control system or a physical Apple TV. Driver orchestration logic
 (pairing, stored-device persistence, connection/reconnect handling, and related state) has been
 extracted behind small internal interfaces so it can be exercised directly by this suite. Coverage
@@ -129,21 +131,6 @@ repository during development.
 ```powershell
 dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Debug
 ```
-
-All **97 tests have passed on Windows and on a Crestron Home processor**. The four simulated
-pairing/session tests took approximately 10–11 seconds each on the processor; the cause has not
-been profiled. They perform real pairing work on both sides of the simulated connection.
-
-The **Tests** GitHub Actions workflow runs on pushes and pull requests. It requires all 97 NUnit
-tests to pass, builds the processor package, and runs all 97 tests from the packaged assembly twice
-on Windows. Its dependency checkouts are pinned. CI uploads test results and the validation package
-as workflow artifacts; it does not create a GitHub release or publish NuGet packages.
-
-Desktop execution also requires the Crestron-compatible `Newtonsoft.Json.Compact.dll`
-(assembly version 4.0.8.0, public key token 1099c178b3b54c3b) in the repository root.
-Use your SDK/runtime copy; it is locally excluded and is never packaged or published here.
-Maintainer CI reconstructs the tested copy from private Actions secrets and verifies its SHA-256.
-Fork pull requests cannot access those secrets and need a trusted maintainer CI run before merging.
 
 Visual Studio Test Explorer uses the NUnit adapter. Tests target `net472`, use a fresh fixture
 instance for each test, and run serially to preserve the existing test isolation. Test project builds
@@ -195,3 +182,36 @@ Apple and Apple TV are trademarks of Apple Inc.
 > **Note:** This project references [Crestron.DeviceDrivers.DevKit](https://www.nuget.org/packages/Crestron.DeviceDrivers.DevKit),
 > which is subject to Crestron's SDK license agreement. That license governs the SDK libraries only;
 > the source code in this repository is licensed independently under the terms above.
+
+
+### Expanded driver behavior tests
+
+Cover saved pairing, shared credential restoration, discovery identity persistence, configured-name changes, retry recovery and superseded discovery/connection attempts. Cancellation prevents old connection attempts from persisting identity or reporting a paired state for a newer configuration.
+
+Real extension entities publish bridge events, maintain connection and tile state, clear keyboard text when focus is lost, reject missing device names before storage access, and clear device-specific UI state when configuration is removed.
+
+The current package contains **105 offline tests** and **11 SDK entity/lifecycle tests**. The processor package remains **net472 only**, appears under **Utility** in Configure, and can run independently through its own tile or the Windows NUnit runner. These fixtures use synthetic data and do not operate installed devices or authenticate with real accounts.
+
+`AppleTVCrestronDriver.Lifecycle.Tests` runs the entity checks against the real desktop SDK on .NET 10. It compiles the relevant driver sources and shares fixture sources with the net472 processor tests. Building this project does not deploy a driver. A locally supplied `Newtonsoft.Json.Compact.dll` is needed by the SDK's manifest reader; it is supplied by the processor at runtime and must not be added to source control or bundled with the processor test package.
+
+```powershell
+dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj --filter "TestCategory!=Processor"
+dotnet test AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj
+```
+
+Desktop success does not establish Mono compatibility. Build the processor test project in Visual Studio, deploy it, and run both suites on the processor. The fixtures cover configuration, restoration, refresh/reconnect races and disposal using simulated responses. Real installed-driver health and optional live-device checks remain separate from these repeatable suites.
+
+
+### Driver build and release versions
+
+The driver's JSON manifest is the source of its four-component build version. Debug builds increment only the fourth component; for example, `2.0.001.0005` becomes `2.0.001.0006`. MSBuild's `Version` and default `PackageVersion` are derived from that same manifest and refreshed after the increment; their numeric form is `2.0.1.6`. Assembly binding versions remain separate. Test-only references and IDE design-time builds do not increment the production driver version.
+
+GitHub tags and NuGet releases retain three components: `v2.0.1` and `2.0.1`. Prepare the manifest's first three components for the intended release before tagging. Release CI checks that the tag matches, resets the fourth component to zero, and verifies the generated `.pkg` version against the manifest and release version before publishing. It does not increment the selected patch again. Local Release builds preserve the manifest. A later Debug build can legitimately be newer than a published release; the processor test package has its own independent version.
+
+Deployment validation compares the exact built `.pkg` against the imported catalogue entry and installed instance, numerically including all four components. Upload/import alone does not activate the new version. Keep the tested package and its hash: rebuilding creates a new artifact that must be validated again.
+
+Run `pwsh -File tools/Test-DriverVersioning.ps1` to check these rules with temporary manifests; this does not change the working driver manifest or deploy anything.
+
+See [versioning details](docs/Versioning.md) for build, release and installed-instance verification rules.
+
+For automated local tests, processor tests and gated driver deployment, see the [Crestron Home NUnit CI development guide](https://github.com/oznetmaster/CrestronHomeNUnit/blob/HEAD/docs/ContinuousIntegration.md). It covers private configuration, live-test gates, install/update waits, results and optional test-package removal.

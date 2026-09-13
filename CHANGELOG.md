@@ -9,7 +9,17 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
-## [Unreleased]
+## 1.4.2 — 2026-09-14
+
+[Draft driver release notes](RELEASE-NOTES.md). Test-only changes do not require a driver release.
+
+- Prevent superseded discovery and connection attempts from saving device identity or reporting an obsolete paired state. Add saved-pairing, shared-credential, configuration replacement and retry recovery regression tests.
+
+- Standardize driver versioning: Debug project/package metadata follows the manifest including its build increment; local Release builds preserve it; three-part release tags select the exact CI release without another patch increment. Verify source and built package versions before publication.
+
+
+- Expand driver coverage to 105 offline tests and 11 SDK entity/lifecycle tests, with a desktop SDK harness and the same lifecycle fixtures in the net472 processor package.
+- Initialize the extension app list as an empty collection and clear old apps, selection, keyboard state, volume capability, and power state when configuration is removed.
 
 ### Fixed
 
@@ -22,7 +32,6 @@ under the same version tag.
 
 ### Added
 
-- Push/PR CI requiring all 97 NUnit tests and two complete runs of the packaged suite on Windows. All 97 tests also validated manually on Crestron Home.
 - A `net472` processor test project in the existing solution, with a standalone Utility tile and Windows NUnit runner discovery.
 - Processor package discovery validation, isolated desktop validation dependencies, license notices and private Visual Studio Debug deployment settings.
 

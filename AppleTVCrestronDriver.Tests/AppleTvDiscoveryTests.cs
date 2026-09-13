@@ -18,18 +18,9 @@ using Assert = NUnit.Framework.Legacy.ClassicAssert;
 namespace AppleTVCrestronDriver.Tests;
 
 /// <summary>
-/// Covers <see cref="IAppleTvDiscovery"/> and <see cref="AppleTvMulticastDiscoveryAdapter"/>: the
-/// seam extracted so discovery-dependent orchestration logic (currently
-/// <c>AppleTvVideoServer.ConfigureAppleTvAsync</c>) can eventually be unit-tested off-box against a
-/// fake instead of the real mDNS-based <c>MulticastCompanionDiscovery</c>, whose static/instance
-/// calls require a real network and cannot be driven deterministically in a unit test.
+/// Covers the discovery adapter's cancellation contract. Configuration and saved-identity
+/// orchestration are covered by AppleTvConfigurationTests with an in-memory discovery source.
 /// </summary>
-/// <remarks>
-/// <c>ConfigureAppleTvAsync</c> itself has not been extracted off of <see cref="AppleTvVideoServer"/>
-/// yet (that is step 5, tracked separately), so this class can only cover the seam - the interface
-/// contract and the adapter's delegation to the real scanner - not yet the orchestration logic that
-/// consumes it.
-/// </remarks>
 [TestFixture]
 public sealed class AppleTvDiscoveryTests
 	{

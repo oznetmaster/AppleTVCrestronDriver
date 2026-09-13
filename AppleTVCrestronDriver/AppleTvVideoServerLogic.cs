@@ -32,6 +32,8 @@ internal sealed class AppleTvVideoServerLogic
 
 	private AppleTvStoredDevice _storedDevice;
 
+	private readonly ICredentialFileStore _credentialStore;
+
 	/// <summary>
 	/// Creates the logic instance.
 	/// </summary>
@@ -56,12 +58,14 @@ internal sealed class AppleTvVideoServerLogic
 	/// the real <see cref="AppleTvMulticastDiscoveryAdapter"/>; tests supply a fake to avoid real
 	/// network access.
 	/// </param>
-	internal AppleTvVideoServerLogic (IAppleTvDriverHost host, Func<IAppleTvDriverHost> currentHostAccessor, Func<TimeSpan, Task> delay = null, IAppleTvDiscovery discovery = null)
+	/// <param name="credentialStore">Optional shared credential store; defaults to the driver's normal persistent store.</param>
+	internal AppleTvVideoServerLogic (IAppleTvDriverHost host, Func<IAppleTvDriverHost> currentHostAccessor, Func<TimeSpan, Task> delay = null, IAppleTvDiscovery discovery = null, ICredentialFileStore credentialStore = null)
 		{
 		_host = host ?? throw new ArgumentNullException (nameof (host));
 		_currentHostAccessor = currentHostAccessor ?? throw new ArgumentNullException (nameof (currentHostAccessor));
 		_delay = delay ?? (duration => Task.Delay (duration));
 		_discovery = discovery ?? new AppleTvMulticastDiscoveryAdapter ();
+		_credentialStore = credentialStore ?? new CrestronCredentialFileStore (_host.BaseModel);
 		}
 
 	internal AppleTvStoredDevice LoadStoredDevice ()
@@ -158,12 +162,8 @@ internal sealed class AppleTvVideoServerLogic
 	// increasing retry schedule (2s/5s/10s/20s/30s) that gives up rather
 	// than retrying forever once the device stays unreachable.
 	//
-	// 'reconfigure' is injected rather than called directly because the
-	// actual reconnect attempt (ConfigureAppleTvAsync) still depends on
-	// discovery and bridge-server machinery that has not been extracted
-	// behind a seam yet; this method owns only the retry schedule and the
-	// stale-instance abandonment check, both of which are fully testable
-	// off-box today.
+	// The retry scheduler takes a reconnect callback so the timing and stale-instance checks
+	// can be tested independently of the discovery and connection orchestration below.
 	internal async Task HandleCompanionDisconnectedAsync (IAppleTvProtocol protocol, Func<IAppleTvProtocol, Task> reconfigure)
 		{
 		try
@@ -424,7 +424,7 @@ internal sealed class AppleTvVideoServerLogic
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
 			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
 			device.UniqueId = session.Target.UniqueId;
-			AppleTvStoredDevice.Save (device, _host.BaseModel);
+			AppleTvStoredDevice.Save (device, _credentialStore);
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
 			ClearPairing ();
@@ -573,7 +573,7 @@ internal sealed class AppleTvVideoServerLogic
 					return;
 					}
 
-				device = AppleTvStoredDevice.LoadForName (appleTvName, _host.BaseModel);
+				device = AppleTvStoredDevice.LoadForName (appleTvName, _credentialStore);
 				if (device is not null)
 					{
 					SaveStoredDevice (device);
@@ -597,12 +597,16 @@ internal sealed class AppleTvVideoServerLogic
 					{
 					LogDiagnostic ($"Attempting saved endpoint for '{device.Name}' at {device.Address}:{device.Port}.");
 					await connect (protocol, device, device.Address, device.Port).ConfigureAwait (false);
+					if (cancellationToken.IsCancellationRequested)
+						return;
 					LogDiagnostic ($"Connected to '{device.Name}' using its saved endpoint.");
 					SetPairedStatus (device.Name);
 					return;
 					}
 				catch (Exception exception)
 					{
+					if (cancellationToken.IsCancellationRequested)
+						return;
 					LogDiagnostic ($"Saved endpoint failed for '{device.Name}'; starting endpoint recovery.");
 					LogException (exception);
 					}
@@ -685,22 +689,28 @@ internal sealed class AppleTvVideoServerLogic
 				try
 					{
 					await connect (protocol, device, discovered.Address.ToString (), discovered.Port).ConfigureAwait (false);
+					if (cancellationToken.IsCancellationRequested)
+						return;
 					LogDiagnostic ($"Connected to '{device.Name}' using its current stored credentials.");
 					SetPairedStatus (device.Name);
 					return;
 					}
 				catch (Exception exception)
 					{
+					if (cancellationToken.IsCancellationRequested)
+						return;
 					LogDiagnostic ($"Current stored credentials for '{device.Name}' failed to connect at the discovered endpoint; checking for a newer pairing before continuing recovery.");
 					LogException (exception);
 					}
 
-				AppleTvStoredDevice currentDevice = AppleTvStoredDevice.LoadForName (device.Name, _host.BaseModel);
+				AppleTvStoredDevice currentDevice = AppleTvStoredDevice.LoadForName (device.Name, _credentialStore);
 				if (currentDevice is not null && currentDevice.IsPaired)
 					{
 					try
 						{
 						await connect (protocol, currentDevice, currentDevice.Address, currentDevice.Port).ConfigureAwait (false);
+						if (cancellationToken.IsCancellationRequested)
+							return;
 						SaveStoredDevice (currentDevice);
 						LogDiagnostic ($"Connected to '{currentDevice.Name}' using its current stored credentials.");
 						SetPairedStatus (currentDevice.Name);
@@ -725,7 +735,7 @@ internal sealed class AppleTvVideoServerLogic
 				device.Name = discovered.Name;
 				if (endpointChanged)
 					{
-					AppleTvStoredDevice.Save (device, _host.BaseModel);
+					AppleTvStoredDevice.Save (device, _credentialStore);
 					LogDiagnostic ($"Saved endpoint refreshed for '{device.Name}'; reconnecting.");
 					}
 				else
@@ -735,6 +745,8 @@ internal sealed class AppleTvVideoServerLogic
 
 				SaveStoredDevice (device);
 				await connect (protocol, device, device.Address, device.Port).ConfigureAwait (false);
+				if (cancellationToken.IsCancellationRequested)
+					return;
 				LogDiagnostic ($"Connected to '{device.Name}' after endpoint recovery.");
 				SetPairedStatus (device.Name);
 				return;
@@ -744,7 +756,7 @@ internal sealed class AppleTvVideoServerLogic
 			// yet. If pairing was started and completed on another (newer) driver instance
 			// while this discovery scan was in flight, a paired record now exists for this
 			// unique id; do not clobber it with this stale, unpaired discovery record.
-			AppleTvStoredDevice existingDevice = AppleTvStoredDevice.LoadForName (appleTvName, _host.BaseModel);
+			AppleTvStoredDevice existingDevice = AppleTvStoredDevice.LoadForName (appleTvName, _credentialStore);
 			if (existingDevice is not null && existingDevice.IsPaired)
 				{
 				LogDiagnostic ($"Discovery for '{appleTvName}' completed after pairing already succeeded elsewhere; keeping the paired credentials.");
@@ -764,7 +776,7 @@ internal sealed class AppleTvVideoServerLogic
 				Name = discovered.Name,
 				UniqueId = discovered.UniqueId ?? string.Empty,
 				};
-			AppleTvStoredDevice.Save (discoveredDevice, _host.BaseModel);
+			AppleTvStoredDevice.Save (discoveredDevice, _credentialStore);
 			SaveStoredDevice (discoveredDevice);
 			SetDiscoveredUnpairedStatus (discovered.Name);
 			LogDiagnostic ($"Discovered but unpaired identity persisted for '{discovered.Name}'; awaiting Pair Now.");

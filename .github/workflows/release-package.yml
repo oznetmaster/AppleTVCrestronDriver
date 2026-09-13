@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   build-and-upload-package:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: windows-latest
     env:
       MANIFESTUTIL_VERSION: 27.0.24
@@ -30,7 +31,7 @@ jobs:
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: 10.0.401
 
       - name: Set up NuGet
         uses: NuGet/setup-nuget@v2
@@ -38,7 +39,7 @@ jobs:
       - name: Install ILRepack tool
         shell: pwsh
         run: |
-          dotnet tool install --global dotnet-ilrepack
+          dotnet tool install --global dotnet-ilrepack --version 2.0.45
           "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
 
       - name: Install ManifestUtil package
@@ -99,7 +100,7 @@ jobs:
           "exe_path=$($manifestUtil.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Restore dependencies
-        run: dotnet restore AppleTVCrestronDriver.slnx
+        run: dotnet restore AppleTVCrestronDriver/AppleTVCrestronDriver.csproj
 
       - name: Write release notes
         id: release_notes
@@ -129,77 +130,21 @@ jobs:
             "path=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
           }
 
+      - name: Verify driver version rules
+        shell: pwsh
+        run: ./tools/Test-DriverVersioning.ps1
+
       - name: Determine release version
         id: package_version
         shell: pwsh
         run: |
           $refName = if ($env:GITHUB_EVENT_NAME -eq 'release' -and $env:GITHUB_EVENT_PATH) {
-            $event = Get-Content $env:GITHUB_EVENT_PATH | ConvertFrom-Json
-            $event.release.tag_name
-          }
-          else {
-            $env:GITHUB_REF_NAME
-          }
-
-          $tagVersion = if (-not [string]::IsNullOrWhiteSpace($refName)) { $refName.TrimStart('v', 'V') } else { $null }
-
-          if ($tagVersion -match '^\d+\.\d+\.\d+-[0-9A-Za-z.-]+$') {
-            # Prerelease-suffixed tag (e.g. v0.1.0-preview): publish this exact version verbatim so
-            # NuGet/the package receive the prerelease version, bypassing the manifest-derived release
-            # version and its consistency check below (which only applies to plain major.minor.patch tags).
-            $releaseVersion = $tagVersion
-          }
-          else {
-            $manifestPath = Join-Path $env:GITHUB_WORKSPACE 'AppleTVCrestronDriver\AppleTVCrestronDriver.json'
-            if (-not (Test-Path $manifestPath)) {
-              throw "Driver manifest was not found at '$manifestPath'."
-            }
-
-            $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
-            $driverVersion = $manifest.CrestronSerialDeviceApi.GeneralInformation.DriverVersion
-            if ([string]::IsNullOrWhiteSpace($driverVersion)) {
-              throw 'DriverVersion is missing from the driver manifest.'
-            }
-
-            $match = [regex]::Match($driverVersion, '^(?<major>\d+)\.(?<minor>\d+)\.(?<release>\d+)\.(?<build>\d+)$')
-            if (-not $match.Success) {
-              throw "DriverVersion '$driverVersion' does not contain four numeric components."
-            }
-
-            # The checked-in manifest's major.minor.release directly is the intended release version - this
-            # commit is expected to set DriverVersion to the exact version being released before tagging.
-            $releaseVersion = '{0}.{1}.{2}' -f $match.Groups['major'].Value, $match.Groups['minor'].Value, [int]$match.Groups['release'].Value
-
-            if ($tagVersion -match '^\d+\.\d+\.\d+$' -and $tagVersion -ne $releaseVersion) {
-              throw "GitHub tag version '$tagVersion' does not match expected Release version '$releaseVersion' derived from pre-build DriverVersion '$driverVersion'."
-            }
-
-            # The two drivers are released together as a single interlocked release (the extension driver
-            # reuses the video server driver's paired-credential storage/session code), so their
-            # major.minor.release must always agree even though each keeps its own independent build number.
-            $extensionManifestPath = Join-Path $env:GITHUB_WORKSPACE 'AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.json'
-            if (-not (Test-Path $extensionManifestPath)) {
-              throw "Extension driver manifest was not found at '$extensionManifestPath'."
-            }
-
-            $extensionManifest = Get-Content $extensionManifestPath -Raw | ConvertFrom-Json
-            $extensionDriverVersion = $extensionManifest.GeneralInformation.DriverVersion
-            if ([string]::IsNullOrWhiteSpace($extensionDriverVersion)) {
-              throw 'DriverVersion is missing from the extension driver manifest.'
-            }
-
-            $extensionMatch = [regex]::Match($extensionDriverVersion, '^(?<major>\d+)\.(?<minor>\d+)\.(?<release>\d+)\.(?<build>\d+)$')
-            if (-not $extensionMatch.Success) {
-              throw "Extension driver DriverVersion '$extensionDriverVersion' does not contain four numeric components."
-            }
-
-            $extensionReleaseVersion = '{0}.{1}.{2}' -f $extensionMatch.Groups['major'].Value, $extensionMatch.Groups['minor'].Value, [int]$extensionMatch.Groups['release'].Value
-            if ($extensionReleaseVersion -ne $releaseVersion) {
-              throw "Extension driver release version '$extensionReleaseVersion' (from DriverVersion '$extensionDriverVersion') does not match video server driver release version '$releaseVersion'. Both manifests must share the same major.minor.release for a single interlocked release."
-            }
-          }
-
-          "value=$releaseVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            (Get-Content -LiteralPath $env:GITHUB_EVENT_PATH -Raw | ConvertFrom-Json).release.tag_name
+          } else { $env:GITHUB_REF_NAME }
+          $selected = & ./tools/Get-DriverReleaseVersion.ps1 -ManifestPath @('./AppleTVCrestronDriver/AppleTVCrestronDriver.json', './AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.json') -Tag $refName -RequireTag:($env:GITHUB_EVENT_NAME -eq 'release')
+          "value=$($selected.PackageVersion)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "driver=$($selected.DriverReleaseVersion)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "tag=$($selected.Tag)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
       - name: Build release package
         shell: pwsh
@@ -212,30 +157,36 @@ jobs:
           # step against the same files at once, intermittently producing MSB3027/CS2012 "process
           # cannot access the file" failures. Building just these two projects avoids that duplicate
           # build request entirely.
-          dotnet build AppleTVCrestronDriver/AppleTVCrestronDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
-          dotnet build AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false
+          dotnet build AppleTVCrestronDriver/AppleTVCrestronDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false -p:DriverReleaseVersion="${{ steps.package_version.outputs.driver }}"
+          dotnet build AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj -c Release -p:ManifestUtilExe="${{ steps.manifestutil.outputs.exe_path }}" -p:LocalNet472ReferenceAssemblies="$env:NET472_REFERENCE_ASSEMBLIES" -p:LocalNetFxRuntimeDir="$env:NETFX_RUNTIME_DIR" -p:MergeDependenciesContinueOnError=false -p:PackageDriverContinueOnError=false -p:PackageDriverIgnoreExitCode=false -p:DriverReleaseVersion="${{ steps.package_version.outputs.driver }}"
 
       - name: Locate video server package
         id: package
         shell: pwsh
         run: |
-          $pkg = Get-ChildItem -Path "$env:GITHUB_WORKSPACE\AppleTVCrestronDriver\bin\Release" -Filter *.pkg -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          $pkg = Get-Item -LiteralPath "$env:GITHUB_WORKSPACE\AppleTVCrestronDriver\bin\Release\net472\AppleTVCrestronCloudDriver.pkg" -ErrorAction Stop
           if ($null -eq $pkg) {
             throw 'No .pkg file was generated in AppleTVCrestronDriver/bin/Release.'
           }
 
+          & ./tools/Assert-DriverPackageVersion.ps1 -PackagePath $pkg.FullName -ManifestPath './AppleTVCrestronDriver/AppleTVCrestronDriver.json' -ReleaseVersion '${{ steps.package_version.outputs.value }}'
+
           "pkg_path=$($pkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
 
       - name: Locate extension package
         id: extension_package
         shell: pwsh
         run: |
-          $pkg = Get-ChildItem -Path "$env:GITHUB_WORKSPACE\AppleTVCrestronExtensionDriver\bin\Release" -Filter *.pkg -Recurse | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+          $pkg = Get-Item -LiteralPath "$env:GITHUB_WORKSPACE\AppleTVCrestronExtensionDriver\bin\Release\net472\AppleTVCrestronExtensionDriver.pkg" -ErrorAction Stop
           if ($null -eq $pkg) {
             throw 'No .pkg file was generated in AppleTVCrestronExtensionDriver/bin/Release.'
           }
 
+          & ./tools/Assert-DriverPackageVersion.ps1 -PackagePath $pkg.FullName -ManifestPath './AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.json' -ReleaseVersion '${{ steps.package_version.outputs.value }}'
+
           "pkg_path=$($pkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
 
       - name: Pack video server NuGet package
         shell: pwsh

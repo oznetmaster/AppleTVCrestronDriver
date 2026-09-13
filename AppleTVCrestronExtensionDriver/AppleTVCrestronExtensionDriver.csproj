@@ -30,6 +30,8 @@
 		<TreatWarningsAsErrors Condition="'$(Configuration)' == 'Debug'">true</TreatWarningsAsErrors>
 	</PropertyGroup>
 
+  <Import Project="DriverVersion.props" />
+
 	<!-- Lets the release workflow supply the GitHub Release notes as the NuGet package's release notes without
 		  needing to escape multi-line text on the dotnet pack command line: it writes the notes to a plain text
 		  file and passes that file's path in via PackageReleaseNotesFile, which is read here at pack time. -->
@@ -105,8 +107,8 @@
 		<PackageDriverIgnoreExitCode Condition="'$(PackageDriverIgnoreExitCode)' == ''">true</PackageDriverIgnoreExitCode>
 	</PropertyGroup>
 
-	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="'$(SkipDriverPackaging)' != 'true' And Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1')">
-		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronExtensionDriver.json&quot; -Configuration &quot;$(Configuration)&quot;" />
+	<Target Name="BumpDriverVersion" BeforeTargets="BeforeBuild" Condition="'$(SkipDriverPackaging)' != 'true' And Exists('$(MSBuildProjectDirectory)\BumpDriverVersion.ps1') And '$(DesignTimeBuild)' != 'true'">
+		<Exec Command="pwsh -NoProfile -NonInteractive -File &quot;$(MSBuildProjectDirectory)\BumpDriverVersion.ps1&quot; -ManifestPath &quot;$(MSBuildProjectDirectory)\AppleTVCrestronExtensionDriver.json&quot; -Configuration &quot;$(Configuration)&quot; -ReleaseVersion &quot;$(DriverReleaseVersion)&quot;" />
 	</Target>
 
 	<!-- Test references require the merged assembly. Copying an unchanged compiler output
@@ -118,8 +120,6 @@
 	<Target Name="MergeDependencies" AfterTargets="Build">
 		<ItemGroup>
 			<MergeInputs Include="$(TargetPath)" />
-			<MergeInputs Include="$(TargetDir)AppleTVControlLibrary.dll" />
-			<MergeInputs Include="$(TargetDir)BouncyCastle.Cryptography.dll" />
 			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.AsyncInterfaces.dll" />
 			<MergeInputs Include="$(TargetDir)Microsoft.Bcl.Memory.dll" />
 			<MergeInputs Include="$(TargetDir)plist-cil.dll" />

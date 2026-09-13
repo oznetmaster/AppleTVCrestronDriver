@@ -98,6 +98,38 @@ public sealed class AppleTvReconnectTests
 		Assert.IsTrue (host.Log.Any (m => m.Contains ("Reconnected successfully")));
 		}
 
+	[Test]
+	public async Task Reconnect_abandons_when_replaced_during_backoff ()
+		{
+		var host = new FakeDriverHost ();
+		var protocol = new FakeProtocol ();
+		AppleTvPairingSessionState.Instance.CurrentProtocol = protocol;
+		var logic = new AppleTvVideoServerLogic (host, () => host, duration =>
+			{
+			AppleTvPairingSessionState.Instance.CurrentProtocol = new FakeProtocol ();
+			return Task.CompletedTask;
+			});
+		int attempts = 0;
+		await logic.HandleCompanionDisconnectedAsync (protocol, p => { attempts++; return Task.CompletedTask; });
+		Assert.AreEqual (0, attempts);
+		}
+	[Test]
+	public async Task Reconnect_retries_after_a_failed_attempt ()
+		{
+		var host = new FakeDriverHost ();
+		var protocol = new FakeProtocol ();
+		AppleTvPairingSessionState.Instance.CurrentProtocol = protocol;
+		var logic = new AppleTvVideoServerLogic (host, () => host, duration => Task.CompletedTask);
+		int attempts = 0;
+		await logic.HandleCompanionDisconnectedAsync (protocol, p =>
+			{
+			if (++attempts == 1) throw new InvalidOperationException ("Transient connection failure");
+			protocol.IsConnected = true;
+			return Task.CompletedTask;
+			});
+		Assert.AreEqual (2, attempts);
+		Assert.IsTrue (host.Log.Any (line => line.Contains ("Reconnected successfully")));
+		}
 	private sealed class FakeDriverHost : IAppleTvDriverHost
 		{
 		internal readonly List<string> Log = [];
