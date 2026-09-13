@@ -61,7 +61,6 @@ AppleTVManifestTest/
 AppleTVCrestronDriver/FetchLatestLog.ps1
 AppleTVCrestronDriver/LiveTailLog.ps1
 AppleTVCrestronDriver/Deploy.ps1
-AppleTVCrestronDriver/BumpDriverVersion.ps1
 AppleTVCrestronDriver/AppleTVCrestronDriver.pre-control.json
 AppleTVCrestronDriver/AppleTVCrestronDriver.reserve.json
 

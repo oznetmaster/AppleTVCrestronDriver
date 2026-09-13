@@ -8,7 +8,7 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
-## 1.4.2 — 2026-09-14
+## 1.4.3 — 2026-09-14
 
 ### Fixed
 
@@ -94,3 +94,5 @@ These runtime fixes justify a driver patch; test additions alone do not. See the
 - Initial public release of the Crestron Home Entity V2 Extension driver for Apple TV, providing
   app selection and remote-control UI driven over a loopback bridge to the paired
   AppleTVCrestronDriver Video Server driver.
+
+The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.

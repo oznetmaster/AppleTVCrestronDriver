@@ -1,4 +1,4 @@
-# AppleTVCrestronDriver v1.4.2
+# AppleTVCrestronDriver v1.4.3
 
 Patch release correcting lifecycle, configuration and recovery defects while preserving the public API and intended driver behavior.
 
@@ -18,3 +18,5 @@ Patch release correcting lifecycle, configuration and recovery defects while pre
 ## Installation and documentation
 
 The GitHub release includes the production driver package and a separate processor test package. The test package appears under Utility in Configure and is not included in the driver NuGet package. See [CHANGELOG.md](CHANGELOG.md) for release history and [README.md](README.md) for installation and testing.
+
+The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
