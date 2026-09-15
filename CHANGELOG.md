@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 2026-09-15 - Test and development tooling (no driver release)
 
 - Add the published Test Explorer workflow adapter, offline discovery CI and independent GitHub processor-test releases. Private workflow plans control optional live tests, actual-driver updates and temporary-instance cleanup.
 
@@ -14,7 +14,7 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
-## 1.4.3 â€” 2026-09-14
+## 1.4.3 — 2026-09-14
 
 The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
 
