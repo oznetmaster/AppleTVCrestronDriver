@@ -38,6 +38,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot record package revision.' }
 $sdkRevision = git -C $SdkRoot rev-parse HEAD
 if ($LASTEXITCODE -ne 0) { throw 'Cannot record SDK revision.' }
 $record = [ordered]@{ package=$Package; version=$Version; packageRevision=$revision; sdkRevision=$sdkRevision; configuration='Release' }
+$helperRevision = git -C (Join-Path (Split-Path $root -Parent) 'AppleTVControlLibrary') rev-parse HEAD
+if ($LASTEXITCODE -ne 0 -or $helperRevision -ne '5de886284cda4a6dd72ea6429189ce930470b41a') { throw 'Unexpected fake-device source revision.' }
+$record.fakeDeviceRevision = $helperRevision
 [IO.File]::WriteAllText("$release/$Package.sources.json", ($record | ConvertTo-Json -Depth 6))
 Copy-Item -LiteralPath $pkg -Destination $release
 $docs = Join-Path $root 'artifacts/release-documentation'

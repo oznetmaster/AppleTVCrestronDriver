@@ -46,6 +46,12 @@ jobs:
           git -C $sdk checkout --detach $lock.revision
           if ($LASTEXITCODE -ne 0) { throw 'SDK checkout failed.' }
           "PROCESSOR_SDK=$sdk" >> $env:GITHUB_ENV
+          # The desktop pairing tests reference this sibling fake-device project.
+          $helpers = Join-Path (Split-Path $env:GITHUB_WORKSPACE -Parent) 'AppleTVControlLibrary'
+          git clone --no-checkout -- https://github.com/oznetmaster/AppleTVControlLibrary.git $helpers
+          if ($LASTEXITCODE -ne 0) { throw 'Fake-device source clone failed.' }
+          git -C $helpers checkout --detach 5de886284cda4a6dd72ea6429189ce930470b41a
+          if ($LASTEXITCODE -ne 0) { throw 'Fake-device source checkout failed.' }
       - name: Prepare test-package version
         shell: pwsh
         run: |
