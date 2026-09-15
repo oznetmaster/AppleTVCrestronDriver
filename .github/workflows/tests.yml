@@ -127,8 +127,14 @@ jobs:
           if ((Get-FileHash Newtonsoft.Json.Compact.dll -Algorithm SHA256).Hash -ne '8b9567057419e97b20702a4364283b0b5c34d5e00e006e329e1c92b74638ef90') { throw 'Unexpected desktop SDK dependency checksum.' }
       - name: Verify discovery coverage guards
         run: ./tools/Test-DiscoveredCoverageGuards.ps1
+      - name: Run discovered NUnit driver tests
+        run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -Framework net472 -AllowProcessorSkips -RequiredCategories unit,processor -ResultsDirectory TestResults
       - name: Run discovered desktop SDK lifecycle harness
         run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -Framework net10.0 -RequiredCategories processor -CompareProcessorInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -ResultsDirectory TestResults
+      - name: Build processor test package
+        run: |
+          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:ReleaseVersion=1.0.0 /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run packaged suite twice
         run: |
           $output = Join-Path $PWD 'AppleTVCrestronDriver.ProcessorTests/bin/Release/net472'
