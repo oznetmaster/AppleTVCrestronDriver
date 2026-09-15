@@ -29,7 +29,8 @@ $extracted = Join-Path $root ('artifacts/verify-' + [Guid]::NewGuid().ToString('
 $suites = (Get-Content "$projectDirectory/ProcessorTests.json" -Raw | ConvertFrom-Json).Suites
 if (@($suites | Where-Object { $_.ExpectedCount -le 0 }).Count) { throw 'Every suite needs an expected discovery count.' }
 $expectedTests = ($suites | Measure-Object -Property ExpectedCount -Sum).Sum
-& "$SdkRoot/ProcessorTestPackage.Validation/bin/Release/net472/ProcessorTestPackage.Validation.exe" "$extracted/$Package.dll" "$root/artifacts/validation" $expectedTests
+# The package-specific host includes the desktop platform assemblies supplied by Home on the processor.
+& "$output/validation-host/ProcessorTestPackage.Validation.exe" "$extracted/$Package.dll" "$root/artifacts/validation" $expectedTests
 if ($LASTEXITCODE -ne 0) { throw 'Packaged test discovery failed.' }
 $manifest = Get-Content "$projectDirectory/$Package.json" -Raw | ConvertFrom-Json
 if ($manifest.GeneralInformation.DeviceType -ne 'Utility') { throw 'Processor test packages must use the Utility category.' }
