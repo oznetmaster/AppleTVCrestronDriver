@@ -1,5 +1,11 @@
 # Changelog
 
+## Discovery-based CI coverage - 2026-09-15 (no package release)
+
+- Compare desktop results and merged-package discovery with source test identities, replacing duplicated test-count constants. Verify the separate desktop lifecycle harness covers the processor fixture identities.
+- Validate both packaged executions, allowing only the documented processor-runtime skips on Windows. The desktop SDK harness executes those lifecycle tests; hardware CI executes them on the processor.
+- No actual driver code or public API changes. Live device tests remain excluded from hosted execution.
+
 ## CI package cleanup - 2026-09-15 (no driver or processor package release)
 
 - Update Test Explorer workflow containers to CrestronHomeNUnit.TestAdapter 1.3.0 and document opt-in storage cleanup after successful CI runs.

@@ -125,33 +125,17 @@ jobs:
           $output = [IO.File]::Create((Join-Path $PWD 'Newtonsoft.Json.Compact.dll'))
           try { $gzip.CopyTo($output) } finally { $output.Dispose(); $gzip.Dispose(); $inputStream.Dispose() }
           if ((Get-FileHash Newtonsoft.Json.Compact.dll -Algorithm SHA256).Hash -ne '8b9567057419e97b20702a4364283b0b5c34d5e00e006e329e1c92b74638ef90') { throw 'Unexpected desktop SDK dependency checksum.' }
-      - name: Run 105 NUnit driver tests
-        run: |
-          dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Release --logger "trx;LogFileName=tests.trx" --results-directory TestResults /p:MergeDependenciesContinueOnError=false
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          [xml]$results = Get-Content TestResults/tests.trx -Raw
-          $counts = $results.TestRun.ResultSummary.Counters
-          if ([int]$counts.total -ne 116 -or [int]$counts.passed -ne 105) { throw "Expected 105 passing driver tests and 11 processor-only cases: $($counts.OuterXml)" }
-      - name: Run 11 desktop SDK lifecycle tests
-        run: |
-          dotnet test AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -c Release --logger "trx;LogFileName=lifecycle.trx" --results-directory TestResults
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          [xml]$result = Get-Content TestResults/lifecycle.trx -Raw
-          $counts = $result.TestRun.ResultSummary.Counters
-          if ([int]$counts.total -ne 11 -or [int]$counts.passed -ne 11) { throw "Expected 11 lifecycle tests: $($counts.OuterXml)" }
-      - name: Build processor test package
-        run: |
-          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:ReleaseVersion=1.0.0 /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify discovery coverage guards
+        run: ./tools/Test-DiscoveredCoverageGuards.ps1
+      - name: Run discovered desktop SDK lifecycle harness
+        run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -Framework net10.0 -RequiredCategories processor -CompareProcessorInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -ResultsDirectory TestResults
       - name: Run packaged suite twice
         run: |
           $output = Join-Path $PWD 'AppleTVCrestronDriver.ProcessorTests/bin/Release/net472'
           $extracted = Join-Path $env:RUNNER_TEMP 'appletv-package'
           [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $output 'AppleTVCrestronDriver.ProcessorTests.pkg'), $extracted)
           $assembly = Get-ChildItem $extracted -Recurse -Filter AppleTVCrestronDriver.ProcessorTests.dll | Select-Object -First 1
-          # Includes 105 passing offline cases and 11 lifecycle cases skipped on desktop net472.
-          & (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') $assembly.FullName (Join-Path $PWD 'TestResults/processor') 116 --run-twice
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          ./tools/Test-DiscoveredCoverage.ps1 -Stage Package -SdkRoot ../CrestronHomeNUnit -PackageAssembly $assembly.FullName -SourceInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -SuiteCategories @{'appletv-driver'='unit';'appletv-extension-lifecycle'='processor'} -ValidatorPath (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') -ResultsDirectory TestResults
       - uses: actions/upload-artifact@v4
         if: always()
         with:

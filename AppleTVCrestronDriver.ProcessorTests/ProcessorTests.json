@@ -6,15 +6,13 @@
       "Id": "appletv-driver",
       "Name": "AppleTVCrestronDriver Tests — Unit and Integration Tests",
       "FilterXml": "<filter><and><namespace re='1'>^AppleTVCrestronDriver[.]Tests($|[.])</namespace><not><cat>Processor</cat></not></and></filter>",
-      "ManualOnly": false,
-      "ExpectedCount": 105
+      "ManualOnly": false
     },
     {
       "Id": "appletv-extension-lifecycle",
       "Name": "AppleTVCrestronDriver Tests — Extension lifecycle",
       "FilterXml": "<filter><cat>Processor</cat></filter>",
-      "ManualOnly": false,
-      "ExpectedCount": 11
+      "ManualOnly": false
     }
   ]
 }
