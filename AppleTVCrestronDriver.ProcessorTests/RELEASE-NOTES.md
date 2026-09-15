@@ -1,5 +1,11 @@
 # AppleTVCrestronDriver Tests
 
+## 1.0.2
+
+- Classify the 11 simulated extension lifecycle tests as an automatic processor suite, alongside the 105 unit/integration cases. A test-only workflow can now execute all 116 cases without live-test opt-in.
+- The lifecycle tests construct isolated test entities and supply synthetic bridge events. They do not connect to a physical Apple TV or configure the installed production driver.
+- This updates only the GitHub processor test package. No production driver or NuGet release is included.
+
 ## 1.0.1
 
 - Rebuild with CrestronHomeNUnit 1.2.1. Test execution now participates in the shared processor reservation used by the runner, Test Explorer, CLI and hardware CI.

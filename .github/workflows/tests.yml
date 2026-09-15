@@ -149,7 +149,8 @@ jobs:
           $extracted = Join-Path $env:RUNNER_TEMP 'appletv-package'
           [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $output 'AppleTVCrestronDriver.ProcessorTests.pkg'), $extracted)
           $assembly = Get-ChildItem $extracted -Recurse -Filter AppleTVCrestronDriver.ProcessorTests.dll | Select-Object -First 1
-          & (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') $assembly.FullName (Join-Path $PWD 'TestResults/processor') 105 --run-twice
+          # Includes 105 passing offline cases and 11 lifecycle cases skipped on desktop net472.
+          & (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') $assembly.FullName (Join-Path $PWD 'TestResults/processor') 116 --run-twice
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - uses: actions/upload-artifact@v4
         if: always()

@@ -1,6 +1,6 @@
 # AppleTVCrestronDriver processor tests
 
-Runs the same 97 NUnit unit/integration tests as the Windows test project on a Crestron Home processor. The tests cover both Apple TV drivers, pairing against a simulated Companion device, stored-device persistence, bridge communication and connection/reconnect logic. They do not operate a physical Apple TV.
+Runs 105 NUnit unit/integration tests and 11 extension lifecycle tests on a Crestron Home processor. The tests cover both Apple TV drivers, pairing against a simulated Companion device, stored-device persistence, bridge communication and connection/reconnect logic. They do not operate a physical Apple TV.
 
 ## Build and deploy
 
@@ -37,4 +37,4 @@ Apple, Apple TV, Crestron and Crestron Home are trademarks of their respective o
 
 Real extension entities publish bridge events, maintain connection and tile state, clear keyboard text when focus is lost, reject missing device names before storage access, and clear device-specific UI state when configuration is removed.
 
-The package contains 105 offline cases and 11 lifecycle cases. Lifecycle tests exercise newly constructed test entities, not the installed production driver. Both suites are selectable in the Windows runner and through the standalone Utility tile. Processor hardware validation remains required.
+The package contains 105 offline cases and 11 lifecycle cases. Lifecycle tests exercise newly constructed test entities, not the installed production driver. Both suites are automatic processor suites, selectable in the Windows runner and through the standalone Utility tile, and can run in a test-only CI plan without live-test opt-in. Processor hardware validation remains required.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Processor test classification - 2026-09-15 (no driver release)
+
+- Make simulated extension lifecycle tests an automatic processor suite so the test-only CI plan can execute all 116 required cases.
+
 ## AppleTVCrestronDriver.ProcessorTests v1.0.1 - 2026-09-15
 
 Published processor test package on GitHub. This is a test-package release only; no driver or library NuGet package is published. See the matching package release notes for changes and validation.

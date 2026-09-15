@@ -13,7 +13,7 @@
       "Id": "appletv-extension-lifecycle",
       "Name": "AppleTVCrestronDriver Tests — Extension lifecycle",
       "FilterXml": "<filter><cat>Processor</cat></filter>",
-      "ManualOnly": true,
+      "ManualOnly": false,
       "ExpectedCount": 11
     }
   ]
