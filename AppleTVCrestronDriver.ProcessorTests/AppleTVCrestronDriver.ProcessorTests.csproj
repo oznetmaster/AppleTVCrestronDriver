@@ -12,7 +12,7 @@
     <BuildProcessorTestPackages Condition="'$(BuildProcessorTestPackages)' == ''">false</BuildProcessorTestPackages>
     <AssemblyName>AppleTVCrestronDriver.ProcessorTests</AssemblyName>
     <RootNamespace>CrestronHomeNUnit.Driver</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <ProcessorExpectedTestCount>116</ProcessorExpectedTestCount>
   </PropertyGroup>
   <Import Project="$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props" Condition="'$(BuildProcessorTestPackages)' == 'true' And Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.props')" />
