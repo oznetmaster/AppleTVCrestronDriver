@@ -1,44 +1,5 @@
 # Changelog
 
-## Offline release workflow option - 2026-09-15 (no package release)
-
-- Allow an explicit manual release when local hardware or the self-hosted runner is unavailable, with the reason and exact source recorded in the workflow summary.
-- Keep hosted source validation mandatory and preserve all build, test and packaging steps. No runtime, API or package-version changes.
-
-## Discovery-based CI coverage - 2026-09-15 (no package release)
-
-- Compare desktop results and merged-package discovery with source test identities, replacing duplicated test-count constants. Verify the separate desktop lifecycle harness covers the processor fixture identities.
-- Validate both packaged executions, allowing only the documented processor-runtime skips on Windows. The desktop SDK harness executes those lifecycle tests; hardware CI executes them on the processor.
-- No actual driver code or public API changes. Live device tests remain excluded from hosted execution.
-
-## CI package cleanup - 2026-09-15 (no driver or processor package release)
-
-- Update Test Explorer workflow containers to CrestronHomeNUnit.TestAdapter 1.3.0 and document opt-in storage cleanup after successful CI runs.
-- Retain original deployment filenames, protect pre-existing/manual packages and preserve failed-run evidence. Cleanup frees archive storage without rebooting; Home can retain cached catalogue entries until its next planned reboot.
-- Actual driver/library code and processor test packages are unchanged by this tooling update.
-
-## CI validation - 2026-09-15 (no package release)
-
-- Revalidate the current default-branch source after successful release workflows, including version commits created by GitHub Actions.
-- Allow maintainers to configure exact-source, App-specific checks that must pass before publishing through `RELEASE_REQUIRED_CHECKS`; missing, failed or unconfirmed checks block the release.
-
-## AppleTVCrestronDriver.ProcessorTests v1.0.2 - 2026-09-15
-
-Published processor test package on GitHub. This is a test-package release only; no driver or library NuGet package is published. See the matching package release notes for changes and validation.
-
-## Processor test classification - 2026-09-15 (no driver release)
-
-- Make simulated extension lifecycle tests an automatic processor suite so the test-only CI plan can execute all 116 required cases.
-
-## AppleTVCrestronDriver.ProcessorTests v1.0.1 - 2026-09-15
-
-Published processor test package on GitHub. This is a test-package release only; no driver or library NuGet package is published. See the matching package release notes for changes and validation.
-
-## 2026-09-15 - Test and development tooling (no driver release)
-
-- Add the published Test Explorer workflow adapter, offline discovery CI and independent GitHub processor-test releases. Private workflow plans control optional live tests, actual-driver updates and temporary-instance cleanup.
-
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -48,33 +9,17 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTV` package. See the pa
 Extension driver's release history. Both packages are released together from this repository
 under the same version tag.
 
+This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [development and validation history](DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
+
 ## 1.4.3 — 2026-09-14
 
 The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
 
 [Driver release notes](RELEASE-NOTES.md). Test-only changes do not require a driver release.
 
-- Prevent superseded discovery and connection attempts from saving device identity or reporting an obsolete paired state. Add saved-pairing, shared-credential, configuration replacement and retry recovery regression tests.
+- Prevent superseded discovery and connection attempts from saving device identity or reporting an obsolete paired state.
 
-- Standardize driver versioning: Debug project/package metadata follows the manifest including its build increment; local Release builds preserve it; three-part release tags select the exact CI release without another patch increment. Verify source and built package versions before publication.
-
-
-- Expand driver coverage to 105 offline tests and 11 SDK entity/lifecycle tests, with a desktop SDK harness and the same lifecycle fixtures in the net472 processor package.
 - Initialize the extension app list as an empty collection and clear old apps, selection, keyboard state, volume capability, and power state when configuration is removed.
-
-### Fixed
-
-- Filename-sanitization test now checks the current runtime's invalid filename characters, rather than assuming Windows restrictions on the processor's Mono runtime. Driver storage behavior is unchanged.
-
-### Changed
-
-- Converted all 97 public driver unit/integration tests from MSTest to NUnit, preserving per-test fixture instances and serial execution.
-- Test builds skip production driver version bumps, packaging and deployment while retaining dependency merging.
-
-### Added
-
-- A `net472` processor test project in the existing solution, with a standalone Utility tile and Windows NUnit runner discovery.
-- Processor package discovery validation, isolated desktop validation dependencies, license notices and private Visual Studio Debug deployment settings.
 
 ## [1.4.1] - 2026-08-18
 
@@ -85,6 +30,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   refresh logic was unconditionally defaulting to the first app in the list whenever the current
   selection (including an intentionally empty/no-selection state) wasn't found, effectively
   undoing what Home just cleared and making an old selection look "persisted" across reboots.
+
 - Fixed the app-selector label incorrectly showing a blank "-" instead of the "Launch
   Application" placeholder text on driver startup, caused by a related change that stopped the
   Selected App properties from being initialized.
@@ -114,6 +60,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 - Extension-driver bridge protocol constants renamed to `SCREAMING_CASE` (e.g. `CommandMedia` ->
   `COMMAND_MEDIA`) to match updated `.editorconfig` naming rules; call sites updated accordingly. No
   functional change.
+
 - `AppleTvBridgeProtocol.DecodeApps` now parses the encoded app-list token directly over
   `ReadOnlySpan<char>` slices instead of allocating an intermediate `string[]` via `Split` plus a
   substring per record. No functional change.
@@ -168,9 +115,13 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 ### Fixed
 
 - Power On no longer does nothing: Wake is now sent as a single button-up HID event instead of a down+up pair, which the Apple TV silently ignored.
+
 - Power state changes made externally (e.g. from the Apple TV Remote or another controller) are now reflected in Crestron Home instead of being received and discarded.
+
 - Pair Now could fail with "Frame transport failed; the session has been faulted" and silently ignore a subsequently entered PIN: a stale, concurrently-running saved-endpoint recovery pass could tear down the TCP session an in-flight pairing handshake was still using, faulting it mid-verification.
+
 - A pairing completed via Pair Now while saved-endpoint recovery was already in progress for the same Apple TV could have its freshly saved credentials immediately overwritten by that recovery pass reconnecting with the older, stale credentials, leaving the device unable to reconnect until Pair Now was run again.
+
 - Every driver initialization ran the saved-endpoint connect/discovery pass twice concurrently: once from the configured Apple TV name being replayed through `SetUserAttribute`, and once from an explicit, now-redundant call at the end of `Initialize()`.
 
 ### Changed
@@ -188,7 +139,11 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 ### Added
 
 - Initial public release of the Crestron Home Video Server driver for Apple TV over Companion Link.
+
 - Pairing flow driven from the Crestron Home configuration UI (Apple TV Name, Pair Now, Pairing PIN).
+
 - Persisted pairing credentials across driver/processor reinitialization.
+
 - Automatic reconnection with online/offline status reporting.
+
 - Remote control support: arrow keys, Select, Menu, Home, Back, discrete power, and Play/Pause.

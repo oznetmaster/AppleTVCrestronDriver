@@ -8,6 +8,8 @@ This changelog covers the `CrestronHomeDriver.Apple.AppleTVExtension` package. S
 [AppleTVCrestronDriver changelog](../CHANGELOG.md) for the Video Server driver's release history.
 Both packages are released together from this repository under the same version tag.
 
+This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [shared development and validation history](../DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
+
 ## 1.4.3 — 2026-09-14
 
 The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
@@ -15,14 +17,8 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 ### Fixed
 
 - Initialize the app list as an empty collection rather than leaving it uninitialized when no apps have been reported.
+
 - Clearing configuration now resets the device label, app list and selection, keyboard focus/text, volume capability, mute and power state before reporting the controller unavailable.
-
-### Tests and build process
-
-- Add 11 SDK lifecycle tests shared between desktop validation and the net472 processor package, including configuration cleanup and controller state behavior.
-- Align Debug build versions and three-part CI release tags with the driver manifest.
-
-These runtime fixes justify a driver patch; test additions alone do not. See the shared [release notes](../RELEASE-NOTES.md).
 
 ## [1.4.1] - 2026-08-18
 
@@ -33,6 +29,7 @@ These runtime fixes justify a driver patch; test additions alone do not. See the
   was unconditionally defaulting to the first app in the list whenever the current selection
   (including an intentionally empty/no-selection state) wasn't found, effectively undoing what
   Home just cleared and making an old selection look "persisted" across reboots.
+
 - Fixed the app-selector label incorrectly showing a blank "-" instead of the "Launch
   Application" placeholder text on driver startup, caused by a related change that stopped the
   Selected App properties from being initialized.
@@ -77,6 +74,7 @@ These runtime fixes justify a driver patch; test additions alone do not. See the
 - On-screen keyboard text entry, mirroring the Apple TV Remote app: automatically shown when the
   Apple TV requests text input and forwards each keystroke live; hidden automatically when the
   Apple TV dismisses the text field.
+
 - Separate Previous/Next track (skip) buttons (`icPrevious`/`icNext`), distinct from Rewind/Fast
   Forward, mapped to the underlying previous/next track commands.
 
@@ -84,7 +82,9 @@ These runtime fixes justify a driver patch; test additions alone do not. See the
 
 - Renamed the media buttongroup's skip buttons to reflect their actual behavior (`Rewind`/`Fast
   Forward` for continuous scanning), separate from the new discrete Previous/Next track buttons.
+
 - The Home button now also resets the app selector back to its default label.
+
 - Versioning is now synchronized with the companion `CrestronHomeDriver.Apple.AppleTV` Video
   Server driver package; both are released together from this repository under the same version
   tag going forward.

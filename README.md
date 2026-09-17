@@ -1,5 +1,8 @@
 # AppleTVCrestronDriver
 
+For shipped changes, see the [changelog](CHANGELOG.md). Test, CI and build history is recorded separately in [development and validation history](DEVELOPMENT-HISTORY.md).
+
+
 See the [changelog](CHANGELOG.md) for release history and the [release notes](RELEASE-NOTES.md) for the current driver update. Driver releases are made for runtime fixes or dependency changes; adding tests alone does not require a driver release.
 
 A **Crestron Home** Video Server driver that controls an **Apple TV** over its **Companion Link** protocol, providing pairing, connection status, and remote-control (arrow keys, select, menu, home, play/pause, power) directly from the Crestron Home app.
