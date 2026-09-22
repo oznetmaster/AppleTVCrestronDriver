@@ -72,20 +72,20 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.5" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.5" />
-		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="27.0.24" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.6" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.6" />
+		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="29.0.10" />
 		<!-- When UseAlternateSdkBuild=true (set via ProjectReference Properties metadata from a private,
 			 non-published test project), the real Crestron.SimplSharp.SDK.Library package is swapped for
 			 an alternate, deterministic, in-memory test double of the SimplSharp APIs (wired up locally;
 			 see AppleTVCrestronDriver.Local.targets), instead of the real appliance-only assembly. -->
-		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.21.274" Condition="'$(UseAlternateSdkBuild)' != 'true'" />
+		<PackageReference Include="Crestron.SimplSharp.SDK.Library" Version="2.22.15" Condition="'$(UseAlternateSdkBuild)' != 'true'" />
 		<PackageReference Include="Hafner.Compatibility.MetaPackage" Version="1.9.0" />
 		<PackageReference Include="IsExternalInit" Version="1.0.3">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
+		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
 	</ItemGroup>
 	<ItemGroup Condition="'$(UseAlternateSdkBuild)' == 'true'">
 		<!-- The actual ProjectReference to the alternate SDK test-double project is intentionally not

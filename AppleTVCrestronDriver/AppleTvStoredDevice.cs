@@ -101,15 +101,15 @@ internal sealed class AppleTvStoredDevice
 	[DataContract]
 	private sealed class StoredDeviceFile
 		{
-		[DataMember] public string Address { get; set; }
-		[DataMember] public int Port { get; set; }
-		[DataMember] public string Name { get; set; }
-		[DataMember] public string UniqueId { get; set; }
-		[DataMember] public string StableIdentifier { get; set; }
-		[DataMember] public string Ltpk { get; set; }
-		[DataMember] public string Ltsk { get; set; }
-		[DataMember] public string AtvId { get; set; }
-		[DataMember] public string ClientId { get; set; }
+		[DataMember (Name = "Address")] public string Address { get; set; }
+		[DataMember (Name = "Port")] public int Port { get; set; }
+		[DataMember (Name = "Name")] public string Name { get; set; }
+		[DataMember (Name = "UniqueId")] public string UniqueId { get; set; }
+		[DataMember (Name = "StableIdentifier")] public string StableIdentifier { get; set; }
+		[DataMember (Name = "Ltpk")] public string Ltpk { get; set; }
+		[DataMember (Name = "Ltsk")] public string Ltsk { get; set; }
+		[DataMember (Name = "AtvId")] public string AtvId { get; set; }
+		[DataMember (Name = "ClientId")] public string ClientId { get; set; }
 
 		internal static StoredDeviceFile FromStoredDevice (AppleTvStoredDevice device) => new ()
 			{

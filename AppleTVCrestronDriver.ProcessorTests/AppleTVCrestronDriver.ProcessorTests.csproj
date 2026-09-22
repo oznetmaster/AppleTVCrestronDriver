@@ -25,6 +25,9 @@
     <ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
   </ItemGroup>
   <Import Project="$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.targets" Condition="'$(BuildProcessorTestPackages)' == 'true' And Exists('$(ProcessorTestSdkRoot)\ProcessorTestPackage\ProcessorTestPackage.targets')" />
+  <ItemGroup Condition="'$(BuildProcessorTestPackages)' == 'true'">
+    <PackageReference Update="Crestron.DeviceDrivers.DevKit" Version="29.0.10" />
+  </ItemGroup>
   <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" />
   <PropertyGroup Condition="'$(BuildProcessorTestPackages)' != 'true'">
     <BuildDependsOn>SkipProcessorPackage</BuildDependsOn>

@@ -148,4 +148,47 @@ public sealed class AppleTvStoredDeviceStorageTests
 
 		_ = NUnit.Framework.Assert.Throws<System.ArgumentException> (() => AppleTvStoredDevice.Save (device, store));
 		}
+    [Test]
+    public void LoadForName_ExistingFilePreservesPairingAndIgnoresUnknownFields ()
+        {
+        FakeCredentialFileStore store = new ();
+        store.AddRawEntry ("existing.json", Encoding.UTF8.GetBytes (
+            "{\"Address\":\"192.0.2.10\",\"Port\":4321,\"Name\":\"Télévision\",\"UniqueId\":\"saved-id\",\"StableIdentifier\":\"stable\",\"Ltpk\":\"AQI=\",\"Ltsk\":\"AwQ=\",\"AtvId\":\"BQ==\",\"ClientId\":\"Bg==\",\"FutureField\":true}"));
+        AppleTvStoredDevice device = AppleTvStoredDevice.LoadForName (" Télévision ", store);
+        Assert.IsNotNull (device);
+        Assert.IsTrue (device.IsPaired);
+        Assert.AreEqual ("stable", device.StableIdentifier);
+        Assert.AreEqual ("saved-id", device.UniqueId);
+        Assert.AreEqual (4321, device.Port);
+        CollectionAssert.AreEqual (new byte[] { 1, 2 }, device.Ltpk);
+        CollectionAssert.AreEqual (new byte[] { 3, 4 }, device.Ltsk);
+        CollectionAssert.AreEqual (new byte[] { 5 }, device.AtvId);
+        CollectionAssert.AreEqual (new byte[] { 6 }, device.ClientId);
+        }
+
+    [Test]
+    public void LoadForName_DiscoveryOnlyFileDoesNotInventPairing ()
+        {
+        FakeCredentialFileStore store = new ();
+        store.AddRawEntry ("discovery.json", Encoding.UTF8.GetBytes (
+            "{\"Name\":\"Room\",\"UniqueId\":\"saved-id\"}"));
+        AppleTvStoredDevice device = AppleTvStoredDevice.LoadForName ("Room", store);
+        Assert.IsNotNull (device);
+        Assert.IsFalse (device.IsPaired);
+        Assert.AreEqual (string.Empty, device.StableIdentifier);
+        Assert.AreEqual (0, device.Ltpk.Length);
+        }
+
+    [Test]
+    public void LoadForName_InvalidBase64DoesNotHideValidFile ()
+        {
+        FakeCredentialFileStore store = new ();
+        store.AddRawEntry ("bad-key.json", Encoding.UTF8.GetBytes (
+            "{\"Name\":\"Room\",\"Ltpk\":\"not-base64!\"}"));
+        AppleTvStoredDevice.Save (new AppleTvStoredDevice { Name = "Room", UniqueId = "valid" }, store);
+        AppleTvStoredDevice device = AppleTvStoredDevice.LoadForName ("Room", store);
+        Assert.IsNotNull (device);
+        Assert.AreEqual ("valid", device.UniqueId);
+        }
+
 	}

@@ -125,3 +125,4 @@ Apple and Apple TV are trademarks of Apple Inc.
 > **Note:** This project references [Crestron.DeviceDrivers.DevKit](https://www.nuget.org/packages/Crestron.DeviceDrivers.DevKit),
 > which is subject to Crestron's SDK license agreement. That license governs the SDK libraries only;
 > the source code in this repository is licensed independently under the terms above.
+See [test dependencies and validation instructions](../AppleTVCrestronDriver.Tests/README.md) for both drivers.

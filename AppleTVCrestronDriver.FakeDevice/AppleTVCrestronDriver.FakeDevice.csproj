@@ -1,0 +1,18 @@
+<!-- Copyright (c) 2026 Neil Colvin. MIT with Commons Clause; see LICENSE. -->
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>AppleTV.Companion.FakeDevice</AssemblyName>
+    <LangVersion>13.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsPublishable>false</IsPublishable>
+  </PropertyGroup>
+  <!-- Reuse the simulated device, but compile it against the same published
+       package as the driver. Never pull a second source build into its tests. -->
+  <ItemGroup>
+    <PackageReference Include="AppleTVControlLibrary" Version="2.2.6" />
+    <PackageReference Include="IsExternalInit" Version="1.0.3" PrivateAssets="all" />
+    <Compile Include="../../AppleTVControlLibrary/tests/AppleTV.Companion.FakeDevice/*.cs" Link="FakeDevice/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

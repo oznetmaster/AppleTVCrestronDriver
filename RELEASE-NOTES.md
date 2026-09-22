@@ -1,22 +1,9 @@
-# AppleTVCrestronDriver v1.4.3
+# Apple TV drivers 1.4.4
 
-The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
+Patch release of the video driver and companion extension. Updates stable SDK/compatibility dependencies and the video driver's AppleTvControlLibrary dependency to 2.2.6. Existing pairing files, configuration and driver interfaces remain compatible. No re-pairing is required by this update.
 
-Patch release correcting lifecycle, configuration and recovery defects while preserving the public API and intended driver behavior.
+Credential field names are explicitly controlled by data-contract attributes. Merged runtime patching preserves custom-attribute metadata. Neither driver adds Newtonsoft.Json or log4net application dependencies.
 
-## Fixes
+Validation covers 108 net472 offline tests, 11 .NET 10 extension lifecycle tests, and the same 119 cases in a temporary processor test host. Neither actual driver is deployed for this validation and no processor reboot is performed. Real-driver installation and Apple TV control are not claimed as tested by these simulated suites.
 
-- Cancel superseded discovery and connection attempts before they can persist stale identity or report an obsolete paired state.
-- Initialize the extension app list as an empty collection. Clearing its configuration also clears apps, selected app, keyboard state, volume capability and power state.
-- Add regression coverage for saved pairing, shared credential restoration, configured-name changes, reconnect recovery and extension configuration cleanup.
-
-## Tests and build process
-
-- 105 offline tests and 11 SDK lifecycle tests. The current implementation passes on Windows in Debug and Release; both processor suites passed twice in the same host process.
-- The shared net472 processor test package is available in the solution and appears under **Utility** in Configure. Its standalone Home tile and Windows NUnit runner select the test suites.
-- Driver Debug build versions follow the manifest; three-part release tags select the CI release version. Test builds do not increment or deploy the production driver.
-- Processor test packages are not published to NuGet. Private deployment settings, live inputs and desktop SDK runtime dependencies are excluded from source and release assets.
-
-## Installation and documentation
-
-The GitHub release includes the production driver package and a separate processor test package. The test package appears under Utility in Configure and is not included in the driver NuGet package. See [CHANGELOG.md](CHANGELOG.md) for release history and [README.md](README.md) for installation and testing.
+See [test dependencies and instructions](AppleTVCrestronDriver.Tests/README.md).

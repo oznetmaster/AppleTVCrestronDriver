@@ -78,3 +78,8 @@ Published processor test package on GitHub. This is a test-package release only;
 - Align Debug build versions and three-part CI release tags with the driver manifest.
 
 These runtime fixes justify a driver patch; test additions alone do not. See the shared [release notes](RELEASE-NOTES.md).
+## 2026-09-22 — Dependency and compatibility audit
+
+- Refresh stable SDK/test dependencies and document exact NUnit/adapter versions.
+- Add three offline stored-pairing compatibility cases (108 offline plus 11 lifecycle cases).
+- Keep desktop test tooling out of the merged processor package and retain no-reboot, test-host-only validation.

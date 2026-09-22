@@ -10,6 +10,12 @@ Both packages are released together from this repository under the same version 
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [shared development and validation history](../DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.4.4] - 2026-09-22
+
+- Update stable Crestron SDK and Microsoft compatibility dependencies; the video driver uses AppleTvControlLibrary 2.2.6.
+- Preserve stored pairing field names explicitly and retain existing installation/configuration compatibility.
+- Preserve custom-attribute metadata when patching merged runtime dependencies.
+
 ## 1.4.3 — 2026-09-14
 
 The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.

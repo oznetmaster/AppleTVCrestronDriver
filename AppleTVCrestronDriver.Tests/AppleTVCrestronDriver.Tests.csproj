@@ -26,8 +26,8 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.11" />
-		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.9.0" PrivateAssets="all" />
+		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" PrivateAssets="all" />
 		<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" PrivateAssets="all" />
 		<PackageReference Include="NUnit" Version="4.6.1" />
 		<!-- AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary.Discovery into its own output
@@ -40,8 +40,8 @@
 			 the driver assembly and the original library assemblies define the same types (e.g.
 			 CompanionDiscoveryResult, HapCredentials since AppleTVControlLibrary's package bundles
 			 AppleTv.Hap.dll too), and using them here becomes ambiguous (CS0433). -->
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.5" ExcludeAssets="compile" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.5" ExcludeAssets="compile" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.6" ExcludeAssets="compile" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.6" ExcludeAssets="compile" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -60,16 +60,9 @@
 		<ProjectReference Include="..\AppleTVCrestronDriver\AppleTVCrestronDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
 		<ProjectReference Include="..\AppleTVCrestronExtensionDriver\AppleTVCrestronExtensionDriver.csproj" AdditionalProperties="DeployAfterBuild=false;SkipDriverPackaging=true" />
 
-		<!--
-			AppleTVControlLibrary's own test suite ships a reusable in-memory fake Companion
-			Apple TV (FakeCompanionDevice/FakeCompanionOpackDevice/FakeCompanionTcpHost) that
-			can drive pairing/API integration tests without a socket or real device. Referencing
-			it here lets this project reuse those fakes instead of reimplementing them.
-			DisableTransitiveProjectReferences above keeps this project from also picking up
-			FakeDevice's own ProjectReference to AppleTV.Companion (source), which would
-			otherwise define HapCredentials a second time alongside the driver's IL-merged copy.
-		-->
-		<ProjectReference Include="..\..\AppleTVControlLibrary\tests\AppleTV.Companion.FakeDevice\AppleTV.Companion.FakeDevice.csproj" />
+        <!-- Reuse the simulated device compiled against the driver's published library. -->
+        <ProjectReference Include="../AppleTVCrestronDriver.FakeDevice/AppleTVCrestronDriver.FakeDevice.csproj" />
+
 	</ItemGroup>
 
 	<ItemGroup>
