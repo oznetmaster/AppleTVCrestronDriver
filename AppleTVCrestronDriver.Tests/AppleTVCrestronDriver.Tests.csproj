@@ -29,7 +29,7 @@
 		<PackageReference Include="Microsoft.Bcl.Memory" Version="10.0.12" />
 		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.10.1" PrivateAssets="all" />
 		<PackageReference Include="NUnit3TestAdapter" Version="6.3.0" PrivateAssets="all" />
-		<PackageReference Include="NUnit" Version="4.6.1" />
+		<PackageReference Include="NUnit" Version="5.0.0" />
 		<!-- AppleTVCrestronDriver.csproj IL-merges AppleTVControlLibrary.Discovery into its own output
 			 assembly (see MergeDependencies below), so this project already sees types like
 			 CompanionDiscoveryResult as part of the driver assembly. Unlike some packages, both
@@ -78,4 +78,7 @@
 		</Reference>
 	</ItemGroup>
 
+  <PropertyGroup>
+    <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
+  </PropertyGroup>
 </Project>

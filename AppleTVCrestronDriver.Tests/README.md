@@ -2,7 +2,7 @@
 
 | Dependency | Version | Purpose |
 | --- | --- | --- |
-| NUnit | 4.6.1 | Test framework |
+| NUnit | 5.0.0 | Test framework |
 | NUnit3TestAdapter | 6.3.0 | Desktop discovery and execution |
 | Microsoft.NET.Test.Sdk | 18.10.1 | Desktop test host |
 | Crestron.DeviceDrivers.DevKit | 29.0.10 | SDK used by both drivers and lifecycle fixtures |
