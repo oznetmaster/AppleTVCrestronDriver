@@ -133,7 +133,7 @@ jobs:
         run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -Framework net10.0 -RequiredCategories processor -CompareProcessorInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -ResultsDirectory TestResults
       - name: Build processor test package
         run: |
-          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:ReleaseVersion=1.0.0 /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
+          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:ReleaseVersion=1.1.0 /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Run packaged suite twice
         run: |
