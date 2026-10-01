@@ -32,7 +32,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           repository: oznetmaster/AppleTVControlLibrary
-          ref: 5de886284cda4a6dd72ea6429189ce930470b41a
+          ref: 5c995c7b838699883202193785f22d9b2c3689b5
           path: AppleTVControlLibrary
       - uses: actions/checkout@v4
         with:
