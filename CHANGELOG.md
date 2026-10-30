@@ -11,13 +11,13 @@ under the same version tag.
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [development and validation history](DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
-## [1.4.4] - 2026-09-22
+## [1.4.4](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.4) - 2026-09-22
 
 - Update stable Crestron SDK and Microsoft compatibility dependencies; the video driver uses AppleTvControlLibrary 2.2.6.
 - Preserve stored pairing field names explicitly and retain existing installation/configuration compatibility.
 - Preserve custom-attribute metadata when patching merged runtime dependencies.
 
-## 1.4.3 — 2026-09-14
+## [1.4.3](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.3) — 2026-09-14
 
 The `1.4.2` publication attempt stopped before producing driver binaries or publishing NuGet because an existing Git exclusion omitted the required versioning script. Version `1.4.3` includes that script and the fixes above; the earlier tag is preserved.
 
@@ -27,7 +27,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 
 - Initialize the extension app list as an empty collection and clear old apps, selection, keyboard state, volume capability, and power state when configuration is removed.
 
-## [1.4.1] - 2026-08-18
+## [1.4.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.1) - 2026-08-18
 
 ### Fixed
 
@@ -41,7 +41,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   Application" placeholder text on driver startup, caused by a related change that stopped the
   Selected App properties from being initialized.
 
-## [1.4.0] - 2026-08-17
+## [1.4.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.0) - 2026-08-17
 
 ### Changed
 
@@ -50,7 +50,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   interfaces/seams so it can be exercised directly by an expanded automated test suite. No functional or
   behavioral change for the shipped driver.
 
-## [1.3.3] - 2026-08-16
+## [1.3.3](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.3.3) - 2026-08-16
 
 ### Fixed
 
@@ -71,7 +71,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   `ReadOnlySpan<char>` slices instead of allocating an intermediate `string[]` via `Split` plus a
   substring per record. No functional change.
 
-## [1.3.2] - 2026-08-16
+## [1.3.2](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.3.2) - 2026-08-16
 
 ### Changed
 
@@ -80,7 +80,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   boolean-only events (power, mute, volume-supported, keyboard-focus), avoiding a per-event
   string allocation. No functional or behavioral change.
 
-## [1.3.1] - 2026-08-13
+## [1.3.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.3.1) - 2026-08-13
 
 ### Changed
 
@@ -90,7 +90,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   extension method, so the extension driver package no longer references or merges
   `AppleTvControlLibrary.dll`. No behavior change for either driver.
 
-## [1.3.0] - 2026-08-13
+## [1.3.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.3.0) - 2026-08-13
 
 ### Added
 
@@ -106,7 +106,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
   under the same version tag. See the [Extension driver's changelog](AppleTVCrestronExtensionDriver/CHANGELOG.md)
   for its own release notes.
 
-## [1.1.2] - 2026-08-11
+## [1.1.2](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.1.2) - 2026-08-11
 
 ### Fixed
 
@@ -116,7 +116,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 
 - Crestron Home's Configure Pro app can display stale/incorrect user attribute descriptions (e.g. Apple TV Name, Pair Now) after reopening the device configuration page, even though the driver has already sent the correct, current description. Using the Crestron Home Setup app instead shows the descriptions correctly and updates them immediately when values change. This appears to be a Configure Pro caching/refresh issue rather than a driver defect.
 
-## [1.1.1] - 2026-08-10
+## [1.1.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.1.1) - 2026-08-10
 
 ### Fixed
 
@@ -134,7 +134,7 @@ The `1.4.2` publication attempt stopped before producing driver binaries or publ
 
 - Diagnostic logging now routes through the RAD base class's `Log()` method, gated on `EnableLogging`, so it is visible via Crestron Home's logging toggle in the field; direct `ErrorLog` output is now emitted only in Debug builds.
 
-## [1.1.0] - 2026-08-09
+## [1.1.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.1.0) - 2026-08-09
 
 ### Changed
 
