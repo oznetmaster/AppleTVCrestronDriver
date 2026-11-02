@@ -51,9 +51,7 @@
           "shell": "pwsh"
         }
       ],
-      "results": [
-        "TestResults/**/*.trx"
-      ]
+      "results": []
     },
     "workflow-discovery-discover-verify-offline-test-explorer-discovery": {
       "commands": [
