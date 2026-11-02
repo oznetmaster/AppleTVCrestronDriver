@@ -126,22 +126,32 @@ jobs:
           try { $gzip.CopyTo($output) } finally { $output.Dispose(); $gzip.Dispose(); $inputStream.Dispose() }
           if ((Get-FileHash Newtonsoft.Json.Compact.dll -Algorithm SHA256).Hash -ne '8b9567057419e97b20702a4364283b0b5c34d5e00e006e329e1c92b74638ef90') { throw 'Unexpected desktop SDK dependency checksum.' }
       - name: Verify discovery coverage guards
-        run: ./tools/Test-DiscoveredCoverageGuards.ps1
+        uses: oznetmaster/BuildAutomation@ae6f311e530a18dc705971dcc655fc97de03e368
+        with:
+          task: tests-nunit-verify-discovery-coverage-guards
+          root: AppleTVCrestronDriver
       - name: Run discovered NUnit driver tests
-        run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -Framework net472 -AllowProcessorSkips -RequiredCategories unit,processor -ResultsDirectory TestResults
+        uses: oznetmaster/BuildAutomation@ae6f311e530a18dc705971dcc655fc97de03e368
+        with:
+          task: tests-nunit-run-discovered-nunit-driver-tests
+          root: AppleTVCrestronDriver
       - name: Run discovered desktop SDK lifecycle harness
-        run: ./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -Framework net10.0 -RequiredCategories processor -CompareProcessorInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -ResultsDirectory TestResults
+        uses: oznetmaster/BuildAutomation@ae6f311e530a18dc705971dcc655fc97de03e368
+        with:
+          task: tests-nunit-run-discovered-desktop-sdk-lifecycle-harness
+          root: AppleTVCrestronDriver
       - name: Build processor test package
-        run: |
-          msbuild AppleTVCrestronDriver.ProcessorTests/AppleTVCrestronDriver.ProcessorTests.csproj /restore /nologo /v:minimal /p:Configuration=Release /p:BuildProcessorTestPackages=true /p:ReleaseVersion=1.1.0 /p:DeployAfterBuild=false /p:MergeDependenciesContinueOnError=false "/p:ManifestUtilExe=${{ steps.manifestutil.outputs.exe_path }}"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+        uses: oznetmaster/BuildAutomation@ae6f311e530a18dc705971dcc655fc97de03e368
+        with:
+          task: tests-nunit-build-processor-test-package
+          root: AppleTVCrestronDriver
+        env:
+          BUILD_INPUT_0: ${{ steps.manifestutil.outputs.exe_path }}
       - name: Run packaged suite twice
-        run: |
-          $output = Join-Path $PWD 'AppleTVCrestronDriver.ProcessorTests/bin/Release/net472'
-          $extracted = Join-Path $env:RUNNER_TEMP 'appletv-package'
-          [IO.Compression.ZipFile]::ExtractToDirectory((Join-Path $output 'AppleTVCrestronDriver.ProcessorTests.pkg'), $extracted)
-          $assembly = Get-ChildItem $extracted -Recurse -Filter AppleTVCrestronDriver.ProcessorTests.dll | Select-Object -First 1
-          ./tools/Test-DiscoveredCoverage.ps1 -Stage Package -SdkRoot ../CrestronHomeNUnit -PackageAssembly $assembly.FullName -SourceInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -SuiteCategories @{'appletv-driver'='unit';'appletv-extension-lifecycle'='processor'} -ValidatorPath (Join-Path $output 'validation-host/ProcessorTestPackage.Validation.exe') -ResultsDirectory TestResults
+        uses: oznetmaster/BuildAutomation@ae6f311e530a18dc705971dcc655fc97de03e368
+        with:
+          task: tests-nunit-run-packaged-suite-twice
+          root: AppleTVCrestronDriver
       - uses: actions/upload-artifact@v4
         if: always()
         with:

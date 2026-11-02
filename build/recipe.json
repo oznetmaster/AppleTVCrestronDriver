@@ -1,0 +1,68 @@
+{
+  "schema": 1,
+  "tasks": {
+    "tests-nunit-verify-discovery-coverage-guards": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/tests-nunit-verify-discovery-coverage-guards.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "tests-nunit-run-discovered-nunit-driver-tests": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/tests-nunit-run-discovered-nunit-driver-tests.ps1",
+          "shell": "pwsh"
+        }
+      ],
+      "results": [
+        "TestResults/**/*.trx"
+      ]
+    },
+    "tests-nunit-run-discovered-desktop-sdk-lifecycle-harness": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/tests-nunit-run-discovered-desktop-sdk-lifecycle-harness.ps1",
+          "shell": "pwsh"
+        }
+      ],
+      "results": [
+        "TestResults/**/*.trx"
+      ]
+    },
+    "tests-nunit-build-processor-test-package": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/tests-nunit-build-processor-test-package.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    },
+    "tests-nunit-run-packaged-suite-twice": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/tests-nunit-run-packaged-suite-twice.ps1",
+          "shell": "pwsh"
+        }
+      ],
+      "results": [
+        "TestResults/**/*.trx"
+      ]
+    },
+    "workflow-discovery-discover-verify-offline-test-explorer-discovery": {
+      "commands": [
+        {
+          "executable": "pwsh",
+          "script": "build/steps/workflow-discovery-discover-verify-offline-test-explorer-discovery.ps1",
+          "shell": "pwsh"
+        }
+      ]
+    }
+  }
+}

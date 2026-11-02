@@ -67,3 +67,7 @@ AppleTVCrestronDriver/AppleTVCrestronDriver.reserve.json
 ## Stray NuGet-restored/build-output binaries that ended up at the solution
 ## root; these are not project references and should never be committed
 *.dll
+
+# Shared Cake build downloads and invocation receipts
+/artifacts/build-components/
+/artifacts/build-automation/

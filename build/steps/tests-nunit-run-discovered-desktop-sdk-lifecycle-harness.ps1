@@ -1,0 +1,1 @@
+./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Lifecycle.Tests/AppleTVCrestronDriver.Lifecycle.Tests.csproj -Framework net10.0 -RequiredCategories processor -CompareProcessorInventory TestResults/AppleTVCrestronDriver.Tests/inventory.json -ResultsDirectory TestResults

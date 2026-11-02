@@ -1,0 +1,1 @@
+./tools/Test-DiscoveredCoverage.ps1 -Stage Desktop -Project AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -Framework net472 -AllowProcessorSkips -RequiredCategories unit,processor -ResultsDirectory TestResults
