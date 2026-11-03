@@ -319,6 +319,15 @@ jobs:
 
           "nupkg_path=$($nupkg.FullName)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
 
+      - name: Verify public driver artifact contents
+        shell: pwsh
+        env:
+          PUBLIC_ARTIFACT_0: ${{ steps.package.outputs.pkg_path }}
+          PUBLIC_ARTIFACT_1: ${{ steps.nuget_package.outputs.nupkg_path }}
+          PUBLIC_ARTIFACT_2: ${{ steps.extension_package.outputs.pkg_path }}
+          PUBLIC_ARTIFACT_3: ${{ steps.extension_nuget_package.outputs.nupkg_path }}
+        run: |
+          ./tools/Assert-PublicDriverArtifacts.ps1 -Path @($env:PUBLIC_ARTIFACT_0, $env:PUBLIC_ARTIFACT_1, $env:PUBLIC_ARTIFACT_2, $env:PUBLIC_ARTIFACT_3)
       - name: Publish NuGet packages
         shell: pwsh
         env:

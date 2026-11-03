@@ -61,3 +61,7 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+# Preserve shared public packaging script hashes across platforms.
+tools/Assert-PublicDriverArtifacts.ps1 text eol=lf
+tools/Test-PublicDriverArtifacts.ps1 text eol=lf
