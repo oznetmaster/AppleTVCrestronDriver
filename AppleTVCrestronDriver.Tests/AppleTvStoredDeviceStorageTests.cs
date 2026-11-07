@@ -43,11 +43,12 @@ public sealed class AppleTvStoredDeviceStorageTests
 	[Test]
 	public void AtomicFileCommitReplacesCompleteRecordsAndCleansTemporaryFiles ()
 		{
-		string directory = Path.Combine (TestContext.CurrentContext.WorkDirectory, "credential-commit-" + System.Guid.NewGuid ().ToString ("N"));
+		// Packaged Windows runs already have a deep, unique work directory.
+		string directory = Path.Combine (TestContext.CurrentContext.WorkDirectory, "c-" + System.Guid.NewGuid ().ToString ("N").Substring (0, 8));
 		Directory.CreateDirectory (directory);
 		try
 			{
-			string path = Path.Combine (directory, "synthetic.json");
+			string path = Path.Combine (directory, "s.json");
 			CrestronCredentialFileStore.WriteFileAtomically (path, Encoding.UTF8.GetBytes ("first synthetic record"));
 			CrestronCredentialFileStore.WriteFileAtomically (path, Encoding.UTF8.GetBytes ("complete replacement"));
 			NUnit.Framework.Assert.That (File.ReadAllText (path), Is.EqualTo ("complete replacement"));

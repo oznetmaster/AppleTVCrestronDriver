@@ -11,6 +11,10 @@ See the [product changelog](CHANGELOG.md) for shipped changes. This document pre
 
 <!-- development-history -->
 
+## Hosted fixture paths - 2026-11-07 (no driver change)
+
+- The extra hosted packaged-suite run exposed the legacy Windows path limit in the synthetic credential-commit fixture. Shorten its directory and filename while keeping the runner-provided writable work directory and identical assertions. Published 1.4.5 payloads and runtime source are unchanged.
+
 ## Apple TV library 2.2.7 driver audit - 2026-11-07
 
 - Work uses the maintained checkout. The separate media-service prototype and its pending edits are excluded from this audit.
