@@ -68,6 +68,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		{
 		_logger = creationArgs.Logger;
 		_logControllerId = creationArgs.DriverId;
+		InitializeAppLauncher ();
 
 		var configurationArgs = DataDrivenConfigurationControllerArgs.FromResources (creationArgs, resources, ControllerId);
 		ConfigurationController = new DelegateDataDrivenConfigurationController (configurationArgs, ApplyConfigurationItems, null, null);
@@ -127,6 +128,8 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			_disposed = true;
 			}
 		_appRefreshTimer.Dispose ();
+		_launchCancellation.Cancel ();
+		_launchCancellation.Dispose ();
 		StopConnecting ();
 		DisposeBridgeClient ();
 		base.Dispose ();
@@ -424,7 +427,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 			case AppleTvExtensionDriverLogic.BridgeLineKind.Apps:
 				LogInformation ($"Decoded {result.Apps.Count} app(s) from bridge apps event.");
-				ApplyAppList (result.Apps);
+				ApplyConfirmedAppList (result.Apps);
 				return;
 
 			// Mirrors AppleTv.Remote.Wpf's reactive TextInputDialog: KeyboardFocused gates the
@@ -446,6 +449,12 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 				ApplyKeyboardTextFromDevice (result.StringValue);
 				return;
 			}
+		}
+
+	private void ApplyConfirmedAppList (IReadOnlyList<(string BundleId, string Name)> apps)
+		{
+		ApplyAppList (apps);
+		RefreshAppLaunchCommands (apps);
 		}
 
 	private void ApplyAppList (IReadOnlyList<(string BundleId, string Name)> apps)
@@ -543,6 +552,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 	private void SetUnavailableState (string statusSummary)
 		{
+		Interlocked.Increment (ref _appLaunchGeneration);
 		OnlineIndicatorIsOnline = false;
 		ReadyIndicatorIsReady = false;
 		KeyboardFocused = false;

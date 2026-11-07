@@ -10,6 +10,13 @@ Both packages are released together from this repository under the same version 
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [shared development and validation history](../DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.5.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.0) - 2026-11-07
+
+- Expose a separate parameterless Launch command for each installed app, with stable bundle-based IDs and refreshed labels/availability.
+- Wake Apple TV when needed and wait for confirmed awake state before launching. Already-on launches avoid an extra Home command and startup wait.
+- Serialize launch requests, publish selection only after a launch is queued, and reject pending requests after a disconnect, reconfiguration, unavailable app or failed wake.
+- Document two-step Route AppleTV → Launch app Quick Actions in Setup and Configure Pro. Preserve native source visibility and existing pairing.
+
 ## [1.4.5](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) - 2026-11-07
 
 - Reject callbacks from superseded bridge clients and prevent an in-flight connection from reactivating a cleared or disposed driver.

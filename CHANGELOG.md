@@ -11,6 +11,11 @@ under the same version tag.
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [development and validation history](DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.5.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.0) - 2026-11-07
+
+- Release alongside extension 1.5.0, which adds named app-launch commands and wake-aware two-step Quick Actions. The Video Server runtime, pairing, bridge identity, native routing and tile visibility are unchanged.
+- Document setup in Crestron Home Setup and Configure Pro while retaining both existing driver devices.
+
 ## [1.4.5](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) - 2026-11-07
 
 - Use AppleTVControlLibrary and its Discovery package 2.2.7. Validate the accessory's SRP proof and every expected pairing response before accepting a new pairing or resuming a session.

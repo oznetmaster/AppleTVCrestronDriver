@@ -11,7 +11,7 @@
 | AppleTVControlLibrary / Discovery | 2.2.7 | Published protocol and discovery dependencies |
 | CrestronHomeNUnit.TestAdapter | 3.0.0 | Separate opt-in processor workflow project |
 
-The main suite contains 130 offline tests on net472. The desktop lifecycle harness contains 13 extension lifecycle tests on .NET 10. The separate processor package includes the same 143 cases for execution on Mono, covering both drivers' logic. Pairing tests use simulated Apple TVs and synthetic credentials.
+The main suite contains 149 offline tests on net472. The desktop lifecycle harness contains 15 extension lifecycle tests on .NET 10. The separate processor package includes the same 164 cases for execution on Mono, covering both drivers' logic. Pairing tests use simulated Apple TVs and synthetic credentials.
 
 ```powershell
 dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Release -p:DeployAfterBuild=false -p:SkipDriverPackaging=true --filter "TestCategory!=Processor&TestCategory!=Live"

@@ -11,6 +11,15 @@ See the [product changelog](CHANGELOG.md) for shipped changes. This document pre
 
 <!-- development-history -->
 
+## App Quick Actions 1.5.0 preparation - 2026-11-07
+
+- Integrated the isolated per-app command and confirmed wake/launch experiment into the maintained checkout. The separate combined-media prototype, synthetic Now Playing probe and private test evidence remain excluded.
+- Added regression coverage for stable app identity, unavailable/reinstalled apps, wake ordering, rejected requests, cancellation, serial launch ordering and obsolete connection generations.
+- Maintained-source validation passed 149 workstation logic tests and 15 real-SDK lifecycle tests. All 164 passed on the lab processor with no failures or skips; the workflow removed its temporary test instance/package and released its reservation. All three existing pairing files were unchanged. Production packages 1.5.000.0000 were built strictly and frozen without replacing either installed driver.
+- Experimental 1.4.005.0002 passed the installed two-step normal-use test on lab .244: user-confirmed TV off → Route AppleTV → Launch BBC iPlayer → user-confirmed TV on displaying BBC iPlayer. The preceding selection was Disney+. This is attributed live evidence for that experimental artifact, not a claim of installed 1.5.0 verification.
+- Both temporary Quick Actions were removed, the TV was returned off, all three pairing-file hashes were unchanged and the reservation was released. Additional candidate-specific validation is recorded with the prepared 1.5.0 artifacts.
+
+
 ## Hosted fixture paths - 2026-11-07 (no driver change)
 
 - The extra hosted packaged-suite run exposed the legacy Windows path limit in the synthetic credential-commit fixture. Shorten its directory and filename while keeping the runner-provided writable work directory and identical assertions. Published 1.4.5 payloads and runtime source are unchanged.

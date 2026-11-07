@@ -6,7 +6,7 @@ Test package **1.1.0** uses **NUnit 5.0.0**. It is independent of the product ve
 
 Validated on 1 October 2026: 108 offline cases passed in each of two runs from the packaged assembly on Windows. Processor-only lifecycle fixtures are skipped on Windows and are not included in that pass count. All suite identities were checked against source discovery. Live/manual tests and execution on the processor were not repeated during this migration; earlier hardware results do not certify this new package.
 
-Runs 108 NUnit unit/integration tests and 11 extension lifecycle tests on a Crestron Home processor. The tests cover both Apple TV drivers, pairing against a simulated Companion device, stored-device persistence, bridge communication and connection/reconnect logic. They do not operate a physical Apple TV.
+The current source builds a package with 149 logic tests and 15 extension lifecycle tests on a Crestron Home processor. The tests cover both Apple TV drivers, pairing against a simulated Companion device, stored-device persistence, bridge communication and connection/reconnect logic. They do not operate a physical Apple TV.
 
 ## Build and deploy
 

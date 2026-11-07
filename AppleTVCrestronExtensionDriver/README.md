@@ -1,6 +1,6 @@
 # AppleTVCrestronExtensionDriver
 
-Version **1.4.5** is released with the Video Server driver. [Download both packages](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) or get [CrestronHomeDriver.Apple.AppleTVExtension 1.4.5 on NuGet](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTVExtension/1.4.5).
+Version **1.5.0** adds one programmable **Launch <app name>** command per installed app, with wake confirmation built into app launching. It is versioned with the paired Video Server driver.
 
 A **Crestron Home Entity V2 Extension driver** that adds Apple TV app selection and remote-control UI (arrow keys, D-pad, Home/Menu, play/pause/rewind/fast-forward, previous/next track, volume, and on-screen keyboard text entry) to a room, driven over a loopback bridge to the [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) Video Server driver.
 
@@ -12,7 +12,7 @@ A **Crestron Home Entity V2 Extension driver** that adds Apple TV app selection 
 
 ## Relationship to the Video Server driver
 
-This is an **Extension driver**, not a standalone driver. It requires the [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) Video Server driver to already be configured and paired with the same Apple TV in the room. The extension driver never talks to the Apple TV or Companion Link directly; instead it connects to the Video Server driver's loopback bridge to relay commands (app selection, remote input, volume, keyboard text) and receive status/events (connection state, current app, power state, on-screen keyboard focus).
+This is an **Extension driver**, not a standalone driver. It requires the [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) Video Server driver to already be configured and paired with the same Apple TV in the room. The extension driver never talks to the Apple TV or Companion Link directly; instead it connects to the Video Server driver's loopback bridge to relay commands (app selection, remote input, volume, keyboard text) and receive status/events (connection state, app list, power state, on-screen keyboard focus).
 
 Because the two drivers are released together and must stay compatible, both are versioned and released from the same [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) repository under the same release tag. See that repository's root [README](https://github.com/oznetmaster/AppleTVCrestronDriver#readme) for the Video Server driver's own installation, pairing, and testing documentation.
 
@@ -22,7 +22,9 @@ Because the two drivers are released together and must stay compatible, both are
 
 ## Features
 
-- App selection from a live list of installed Apple TV apps, with the currently selected app shown as the tile/list label
+- App selection from a live list of installed Apple TV apps, with the last accepted launch selection shown as the list label
+- A separate parameterless **Launch <app name>** command for each installed app, available to Quick Actions and other Home programming
+- App launches wake a sleeping Apple TV and wait for confirmed awake state before sending the launch request; an already-on Apple TV launches without an extra Home command or startup wait
 - Full remote control: D-pad arrow navigation, Select, Menu, Home (which also resets the app selector back to its default label)
 - Discrete power toggle with status label
 - Play/Pause, Rewind, Fast Forward, and separate Previous/Next track (skip) buttons
@@ -64,7 +66,43 @@ This extension driver has a single required configuration field:
 
 Once the Apple TV Name is set and matches a configured Video Server driver instance, this extension driver automatically connects to that driver's loopback bridge and reconnects automatically if the bridge connection is interrupted.
 
-> **Room without a UI device:** This extension driver only adds an on-screen control surface. Rooms without any UI-capable device (for example, a room controlled solely by a handheld remote) can still include the paired Video Server driver for connection/pairing and basic remote control; adding this extension driver in that case simply has no visible effect and causes no errors.
+> **Handheld remotes:** The extension UI does not render as a native TSR-310 source screen. Its app commands can still be used in Quick Actions. Keep the Video Server for the native source and remote controls; this release does not add title/artwork to the TSR-310 Now Playing box.
+
+---
+
+## Quick Actions
+
+Use one Quick Action per app you want to offer, such as **Watch BBC iPlayer** or **Watch Disney+**. For the user this is one button. Its installer configuration contains two sequence steps because Home controls room routing while the extension controls app launching.
+
+### Crestron Home Setup
+
+1. Verify the paired **Apple TV Companion** Video Server has an HDMI route to the room's display or switcher. Verify **Apple TV Companion Media** is online and its app selector has populated.
+2. Open **Customize & Schedule → Customize Actions & Events**, select the target room, choose **Quick Actions** and add a Quick Action, for example **Watch BBC iPlayer**.
+3. On its **Actions** tab, choose **Sequence** mode.
+4. Add the first step from the target room's **Media Operations → Route**. Select the Video Server's **AppleTV** source (the device name may differ in your installation).
+5. Add the second step from **Devices → Apple TV Companion Media** (or its configured name). Select **Launch BBC iPlayer**. This command has no parameter.
+6. Confirm the order is **Route AppleTV → Launch BBC iPlayer**, save the Quick Action and choose the rooms in which its button should be visible.
+
+### Configure Pro
+
+1. Add a Quick Action, assign it to the target room and set **Mode → Sequence**.
+2. Add **Media Operations → Route**, selecting the Video Server's Apple TV source.
+3. Add the named extension under **Devices**, then its **Launch <app name>** command.
+4. Keep Route first and Launch second. Set **Visible in Rooms** and save. Menu labels can vary slightly between app versions.
+
+Do not add a separate Home/wake command. The extension sends Home only when it needs to wake Apple TV, waits up to 60 seconds for confirmed awake state, then sends the app launch. It does not wait the full minute when confirmation arrives sooner. Home manages display power, routing and its configured transition times. Keep those settings appropriate for the installed equipment.
+
+Test a new action with the TV/room off, then check both the correct TV input and the requested app. Also try switching between actions for different apps. The live normal-use test used an Apple TV configured to remain on: the TV was confirmed off, the two-step action turned it on and displayed BBC iPlayer after a previous Disney+ selection. Sleeping-Apple-TV wake ordering has automated coverage; this does not claim that every tvOS/display timing combination was tested live.
+
+### Installed-app changes and feedback
+
+Commands appear when the extension receives the app list and update as that list is refreshed. Their IDs derive from the complete app bundle ID, so list reordering or display-name changes do not redirect saved programming to a different app. A removed app is unavailable; reinstall the same app and verify the saved Quick Action. Unavailable command definitions are retained during the current driver session; an app still absent after a driver restart may no longer be offered in programming.
+
+The app-selection label records an accepted launch request, not independently confirmed foreground-app or movie metadata. An offline connection, unavailable app, failed wake confirmation, configuration change or disconnect prevents the pending launch. Concurrent app requests are serialized.
+
+Keep the V1 source available for normal source selection. Deselecting it under **Allowed Sources** hides it from the source picker; that does not provide a way to suppress only its control UI while retaining selection. Neither driver's visibility is changed by this release. The extension does not replace the V1 device's pairing, native source routing or TSR-310 controls.
+
+See Crestron's [Setup Quick Actions guide](https://docs.crestron.com/en-us/8525/Content/CP4R/Installer-Config/Configure-Quick-Actions.htm) and [Configure Pro Quick Actions guide](https://docs.crestron.com/en-us/9599/Content/Quick%20Actions.htm).
 
 ---
 
@@ -104,12 +142,12 @@ The build pipeline compiles this project targeting `net472`, bumps `DriverVersio
 
 The shared [NUnit suite](../AppleTVCrestronDriver.Tests) includes **17 dedicated extension-driver
 logic tests** covering bridge feedback parsing, app-list sorting, selection preservation and
-clearing stale selections. Bridge and keyboard tests provide additional shared coverage. These
-are part of the 130 offline tests run by CI and by the [processor test package](../AppleTVCrestronDriver.ProcessorTests/README.md).
+clearing stale selections. Bridge and keyboard tests provide additional shared coverage. The suite also includes 19 app-command and launch-ordering cases. These
+are part of the 149 offline tests run by CI and by the [processor test package](../AppleTVCrestronDriver.ProcessorTests/README.md).
 
 Run the `AppleTvExtensionDriverLogicTests` fixture in Visual Studio Test Explorer or discover
 and select it in the Windows NUnit runner. The same processor package tests both drivers and
-provides its own Utility tile. The separate real-SDK lifecycle suite covers 13 construction, configuration, bridge-feedback and disposal cases. UI rendering is checked on the installed driver.
+provides its own Utility tile. The separate real-SDK lifecycle suite covers 15 construction, configuration, dynamic command registration, bridge-feedback and disposal cases. UI rendering is checked on the installed driver.
 
 ## Release Notes
 

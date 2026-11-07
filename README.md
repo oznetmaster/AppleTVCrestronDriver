@@ -1,6 +1,6 @@
 # AppleTVCrestronDriver
 
-Version **1.4.5** updates the Video Server to AppleTVControlLibrary **2.2.7** and fixes pairing, connection and companion-state reliability. [Download both drivers](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5), or get the [Video Server NuGet package](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTV/1.4.5) and [companion NuGet package](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTVExtension/1.4.5).
+Version **1.5.0** adds programmable app-launch commands to the companion extension, with confirmed wake handling and a two-step **Route AppleTV → Launch app** Quick Action setup. The Video Server retains its existing pairing, connection and routing behavior. See the [extension setup guide](AppleTVCrestronExtensionDriver/README.md#quick-actions).
 
 See the [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md). Test, CI and build history is recorded separately in [development and validation history](DEVELOPMENT-HISTORY.md).
 
@@ -47,6 +47,12 @@ The driver only implements Companion Link (the protocol tvOS remotes and the App
 Once paired, the driver reconnects automatically on subsequent processor reboots without repeating this flow.
 
 > **Video routing reminder:** This driver only handles Companion Link control (pairing, remote input, and power/connection status) — it does not perform any HDMI switching or display control. After adding the driver, make sure you also configure the Apple TV's video routing to a display or switcher device (for example, an HDMI input assignment on a matrix switcher, or a display's source binding) in Crestron Home so that selecting the Apple TV actually switches the display to the correct input.
+
+### App Quick Actions
+
+The companion extension exposes a separate **Launch <app name>** command for each installed Apple TV app. Create a Quick Action in **Sequence** mode with two steps: route the Video Server's Apple TV source to the target room, then run the extension's app command. The extension handles a required wake internally; no separate Home command is needed. See the [complete Setup and Configure Pro instructions](AppleTVCrestronExtensionDriver/README.md#quick-actions).
+
+Keep both drivers installed. The Video Server owns the saved pairing, Companion Link session and native routable source used by Home and TSR-310. The extension supplies its richer control UI and programmable app commands. This release does not hide either driver's UI or change source visibility.
 
 ### Known Issues
 
@@ -118,7 +124,7 @@ Typical release flow:
 
 ## Testing
 
-`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 130 tests covering the driver logic that
+`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 149 logic tests covering the driver logic that
 does not require a live Crestron control system or a physical Apple TV. Driver orchestration logic
 (pairing, stored-device persistence, connection/reconnect handling, and related state) has been
 extracted behind small internal interfaces so it can be exercised directly by this suite. Coverage
@@ -151,7 +157,7 @@ merge the driver dependencies but skip production driver version bumps, packagin
 The solution also includes [AppleTVCrestronDriver.ProcessorTests](AppleTVCrestronDriver.ProcessorTests/README.md).
 Build that project in **Debug** in Visual Studio to create and deploy the standalone
 **AppleTVCrestronDriver Tests** package, using private local deployment settings. Find it in
-the **Utility** category in Crestron Home Configure. Run its 130 unit tests and 13 processor lifecycle tests from its tile or discover
+the **Utility** category in Crestron Home Configure. Run its 149 logic tests and 15 processor lifecycle tests from its tile or discover
 the package in the Windows NUnit runner. This suite uses simulated Apple TV services and loopback
 connections; it needs no Apple TV pairing credentials or live-test settings.
 
@@ -200,7 +206,7 @@ Cover saved pairing, shared credential restoration, discovery identity persisten
 
 Real extension entities publish bridge events, maintain connection and tile state, clear keyboard text when focus is lost, reject missing device names before storage access, and clear device-specific UI state when configuration is removed.
 
-The current package contains **130 offline tests** and **13 SDK entity/lifecycle tests**. The processor package remains **net472 only**, appears under **Utility** in Configure, and can run independently through its own tile or the Windows NUnit runner. These fixtures use synthetic data and do not operate installed devices or authenticate with real accounts.
+The current source builds a package with **149 offline tests** and **15 SDK entity/lifecycle tests**. The linked 1.1.0 release assets retain their original test inventory. The processor package remains **net472 only**, appears under **Utility** in Configure, and can run independently through its own tile or the Windows NUnit runner. These fixtures use synthetic data and do not operate installed devices or authenticate with real accounts.
 
 `AppleTVCrestronDriver.Lifecycle.Tests` runs the entity checks against the real desktop SDK on .NET 10. It compiles the relevant driver sources and shares fixture sources with the net472 processor tests. Building this project does not deploy a driver. A locally supplied `Newtonsoft.Json.Compact.dll` is needed by the SDK's manifest reader; it is supplied by the processor at runtime and must not be added to source control or bundled with the processor test package.
 

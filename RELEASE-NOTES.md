@@ -1,13 +1,12 @@
-# Apple TV drivers 1.4.5
+# Apple TV drivers 1.5.0
 
-The Video Server uses AppleTVControlLibrary and Discovery 2.2.7 and validates the accessory's SRP proof, the pairing response states and the final Pair Verify acknowledgement. Existing pairings are reused. A working endpoint recovered through mDNS is saved in the driver's settings while preserving the pairing file.
+The companion media extension now exposes a separate **Launch <app name>** command for each installed Apple TV app. Configure a Quick Action as **Route AppleTV → Launch app**. The extension wakes Apple TV when needed and waits for confirmed awake state before submitting the launch request. An already-on device launches without an extra Home command or mandatory startup wait.
 
-Credential writes commit complete records through a temporary file and preserve unknown data-contract fields. Connection disposal cancels pending initialization, stale sessions cannot publish current feedback, and reconnects retain a single bridge event subscription. Concurrent bridge writes are serialized.
+App command identities remain stable across list reordering and app renaming. Pending launches stop when the connection/configuration changes or the app becomes unavailable. Requests are serialized, and selection feedback is updated after an accepted launch submission; it is not foreground-app or movie-title confirmation.
 
-The companion extension rejects superseded bridge callbacks, waits for confirmed Apple TV connection status and refreshes keyboard focus after reconnecting. Unavailable state clears stale keyboard text and volume controls. Routine informational logs are limited to Debug builds, and bridge diagnostics omit keyboard payloads.
+See the [Quick Action setup instructions](AppleTVCrestronExtensionDriver/README.md#quick-actions) for Crestron Home Setup and Configure Pro. Keep both existing devices: the V1 Video Server still owns pairing, the session and native routing/TSR-310 support. Neither tile visibility nor source selection is changed. No synthetic metadata or artwork probe is included.
 
-Update both drivers together. The V1 Video Server requires a full processor reboot. The Entity V2 companion supports an in-place driver update. Retain the existing devices, configuration and saved pairing.
+Both packages use version 1.5.0 (driver version 1.5.000.0000). V1 runtime behavior is unchanged. Retain the existing paired devices and configuration; updating V1 requires a full processor reboot, while the V2 extension supports an in-place update.
 
-Workstation validation passed 130 net472 offline tests and 13 real-SDK extension lifecycle tests. All 143 cases also passed on the processor with no failures or skips. The temporary test instance and stored package were removed and its reservation released. Processor pairing-file hashes remained unchanged. Both existing drivers were then updated to 1.4.005.0000 on the lab processor, with one full reboot for V1. Loaded versions, device identities, rooms, online/ready state, app enumeration and extracted payload hashes were verified. Home navigation, confirmed sleep/wake feedback with a five-second settling pause, and an in-place V2 reload passed. All three pairing files remained byte-for-byte unchanged. A wake sent immediately after reported sleep was ignored; the five-second test interval is not a proven minimum delay.
 
-See [test dependencies and instructions](AppleTVCrestronDriver.Tests/README.md).
+Validation: 149 logic tests and 15 real-SDK lifecycle tests passed on the workstation; all 164 also passed in the packaged processor test host with no failures or skips. The temporary test instance and its package were removed, the workflow reservation was released and all three saved pairing files were unchanged. The two-step TV-off / BBC iPlayer live test passed on the experimental 1.4.005.0002 build; the prepared 1.5.0 production packages have not replaced the installed drivers.

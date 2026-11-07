@@ -33,17 +33,7 @@ public sealed partial class AppleTvExtensionDriver
 		[EntityParameter (Id = "value", Type = DriverEntityValueType.String)]
 		string value)
 		{
-		string bundleId = value ?? string.Empty;
-		if (string.IsNullOrEmpty (bundleId))
-			{
-			return;
-			}
-
-		SelectedApp = bundleId;
-
-		string appName = _apps.FirstOrDefault (app => string.Equals (app.BundleId, bundleId, StringComparison.Ordinal)).Name ?? bundleId;
-		SelectedAppName = appName;
-		_ = SendBridgeCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_LAUNCH}:{bundleId}", "launch app " + appName);
+		_ = LaunchSelectedAppAsync (value);
 		}
 
 	/// <summary>Turns the Apple TV on or off in response to the power toggle.</summary>
@@ -144,7 +134,7 @@ public sealed partial class AppleTvExtensionDriver
 
 	#endregion Entity commands
 
-	private async Task SendBridgeCommandAsync (string commandLine, string description)
+	private async Task<bool> SendBridgeCommandAsync (string commandLine, string description)
 		{
 		// OnlineIndicatorIsOnline is the authoritative "is the bridge actually usable right
 		// now" flag - set false the instant a disconnect is detected (see
@@ -154,7 +144,7 @@ public sealed partial class AppleTvExtensionDriver
 		if (!OnlineIndicatorIsOnline)
 			{
 			LogWarning ($"Cannot {description}: the Apple TV bridge is offline.");
-			return;
+			return false;
 			}
 
 		AppleTvBridgeClient client;
@@ -166,16 +156,18 @@ public sealed partial class AppleTvExtensionDriver
 		if (client is null || !client.IsConnected)
 			{
 			LogWarning ($"Cannot {description}: no active Apple TV bridge connection.");
-			return;
+			return false;
 			}
 
 		try
 			{
 			await client.SendCommandAsync (commandLine).ConfigureAwait (false);
+			return true;
 			}
 		catch (Exception exception)
 			{
 			LogError ($"Failed to {description}: {exception.Message}");
+			return false;
 			}
 		}
 	}

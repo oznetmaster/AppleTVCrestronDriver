@@ -81,4 +81,10 @@
   <PropertyGroup>
     <WarningsAsErrors>$(WarningsAsErrors);CS4014</WarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- Compile the pure app-command logic into the test assembly. Granting friend access
+         to the whole extension would expose its duplicate linked credential-store types. -->
+    <Compile Include="../AppleTVCrestronExtensionDriver/AppleTvAppCommandCatalog.cs" Link="AppLaunch/AppleTvAppCommandCatalog.cs" />
+    <Compile Include="../AppleTVCrestronExtensionDriver/AppleTvAppLaunchCoordinator.cs" Link="AppLaunch/AppleTvAppLaunchCoordinator.cs" />
+  </ItemGroup>
 </Project>
