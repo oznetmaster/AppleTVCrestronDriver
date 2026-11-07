@@ -11,6 +11,14 @@ See the [product changelog](CHANGELOG.md) for shipped changes. This document pre
 
 <!-- development-history -->
 
+## Apple TV library 2.2.7 driver audit - 2026-11-07
+
+- Work uses the maintained checkout. The separate media-service prototype and its pending edits are excluded from this audit.
+- The processor's three pairing files and saved configuration were copied over pinned, read-only SFTP to a private DPAPI-encrypted backup. Decrypted readback and fresh remote hashes matched before any deployment.
+- The original 108 offline tests passed. The updated source passes 130 offline cases and 13 real desktop-SDK entity lifecycle cases, covering rejected pairing replies, endpoint recovery, credential commits, concurrent bridge writes, stale clients and disposal.
+- The temporary processor host, built with the repository's pinned SDK, passed all 143 cases on Mono with no failures or skips. Its instance and stored package were removed, its reservation released, and all three original pairing files remained byte-for-byte unchanged. Both existing installed devices were updated to 1.4.005.0000 and their identities and rooms retained through one full V1 reboot. Both were loaded, online and ready, and their extracted files matched the frozen candidate packages. Live app enumeration, Home navigation, sleep/wake after a five-second settling pause, and V2 in-place reload/reconnect passed. Final pairing hashes were unchanged and the original processor reservation was released.
+- Retain the failed immediate-wake observation separately: sleep feedback was confirmed, but waking immediately afterward was ignored. A paced test passed, without establishing a minimum delay. Initial command-harness parameter errors were diagnosed separately and excluded from product qualification; the corrected UI property-set path supplied the live power evidence.
+
 ## Offline release workflow option - 2026-09-15 (no package release)
 
 - Allow an explicit manual release when local hardware or the self-hosted runner is unavailable, with the reason and exact source recorded in the workflow summary.

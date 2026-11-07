@@ -22,6 +22,8 @@ namespace AppleTV.CrestronDriver;
 internal sealed class AppleTvBridgeClient : IDisposable
 	{
 	private readonly Action<string> _log;
+	private readonly object _stateLock = new ();
+	private readonly SemaphoreSlim _sendGate = new (1, 1);
 	private TcpClient _client;
 	private CancellationTokenSource _readCancellation;
 	private volatile bool _disposed;
@@ -45,7 +47,7 @@ internal sealed class AppleTvBridgeClient : IDisposable
 	/// </summary>
 	internal event Action Disconnected;
 
-	internal bool IsConnected => _client is { Connected: true } && !_disposed;
+	internal bool IsConnected => !_disposed && _client is { Connected: true };
 
 	/// <summary>
 	/// Connects to the bridge server listening on the loopback address at <paramref name="port"/>
@@ -59,15 +61,29 @@ internal sealed class AppleTvBridgeClient : IDisposable
 			}
 
 		var client = new TcpClient ();
-		using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+		try
 			{
-			await client.ConnectAsync (IPAddress.Loopback, port).ConfigureAwait (false);
-			}
+			using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+				await client.ConnectAsync (IPAddress.Loopback, port).ConfigureAwait (false);
 
-		_client = client;
-		_readCancellation = new CancellationTokenSource ();
+			lock (_stateLock)
+				{
+				cancellationToken.ThrowIfCancellationRequested ();
+				if (_disposed)
+					throw new ObjectDisposedException (nameof (AppleTvBridgeClient));
+				if (_client is not null)
+					throw new InvalidOperationException ("The bridge client is already connected.");
+				_client = client;
+				_readCancellation = new CancellationTokenSource ();
+				_ = ReadLoopAsync (client, _readCancellation.Token);
+				}
+			}
+		catch
+			{
+			client.Dispose ();
+			throw;
+			}
 		_log?.Invoke ($"Bridge client connected to 127.0.0.1:{port}.");
-		_ = ReadLoopAsync (client, _readCancellation.Token);
 		}
 
 	/// <summary>
@@ -79,20 +95,31 @@ internal sealed class AppleTvBridgeClient : IDisposable
 		TcpClient client = _client;
 		if (client is not { Connected: true })
 			{
-			_log?.Invoke ($"Not sending bridge command '{commandLine}': not currently connected.");
+			_log?.Invoke ("Not sending bridge command: not currently connected.");
 			return;
 			}
 
 		byte[] payload = Encoding.UTF8.GetBytes (commandLine + "\n");
 		try
 			{
-			NetworkStream stream = client.GetStream ();
-			await stream.WriteAsync (payload, 0, payload.Length).ConfigureAwait (false);
-			_log?.Invoke ($"Sent bridge command '{commandLine}'.");
+			await _sendGate.WaitAsync ().ConfigureAwait (false);
+			try
+				{
+				if (_disposed || !ReferenceEquals (client, _client))
+					return;
+				NetworkStream stream = client.GetStream ();
+				await stream.WriteAsync (payload, 0, payload.Length).ConfigureAwait (false);
+				}
+			finally
+				{
+				_ = _sendGate.Release ();
+				}
+			_log?.Invoke ("Sent bridge command.");
 			}
 		catch (Exception exception)
 			{
-			_log?.Invoke ($"Failed to send bridge command '{commandLine}': {exception.Message}");
+			_log?.Invoke ($"Failed to send bridge command: {exception.Message}");
+			client.Close ();
 			}
 		}
 
@@ -139,6 +166,18 @@ internal sealed class AppleTvBridgeClient : IDisposable
 			}
 		finally
 			{
+			CancellationTokenSource cancellation;
+			lock (_stateLock)
+				{
+				cancellation = ReferenceEquals (client, _client) ? _readCancellation : null;
+				if (ReferenceEquals (client, _client))
+					{
+					_client = null;
+					_readCancellation = null;
+					}
+				}
+			client.Dispose ();
+			cancellation?.Dispose ();
 			if (!_disposed)
 				{
 				_log?.Invoke ("Bridge client disconnected from server.");
@@ -149,28 +188,18 @@ internal sealed class AppleTvBridgeClient : IDisposable
 
 	public void Dispose ()
 		{
-		if (_disposed)
+		lock (_stateLock)
 			{
-			return;
-			}
-
-		_disposed = true;
-		try
-			{
+			if (_disposed)
+				return;
+			_disposed = true;
 			_readCancellation?.Cancel ();
-			}
-		catch (Exception)
-			{
-			}
-
-		try
-			{
 			_client?.Close ();
-			}
-		catch (Exception)
-			{
-			}
-
 			_readCancellation?.Dispose ();
-				}
+			_client = null;
+			_readCancellation = null;
+			LineReceived = null;
+			Disconnected = null;
 			}
+		}
+	}

@@ -18,6 +18,10 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 	{
 	private AppleTvNoOpTransport _transport;
 	private AppleTvBridgeServerHandlerRegistration _bridgeHandlerRegistration;
+	private readonly object _bridgeLock = new ();
+	private AppleTvBridgeServer _bridgeServer;
+	private AppleTvVideoServerProtocol _bridgeProtocol;
+	private bool _disposed;
 
 	// Depends only on IAppleTvDriverHost (implemented by this class below), so this logic is
 	// constructible and testable off-box. See AppleTvVideoServerLogic for details. CurrentDriverOrSelf
@@ -174,7 +178,17 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		// keep being routed to this now-disposed protocol - whose Companion
 		// Link session is gone - instead of failing loudly or waiting for the
 		// next instance to install its own handler.
-		_bridgeHandlerRegistration?.ClearIfCurrent ();
+		lock (_bridgeLock)
+			{
+			_disposed = true;
+			if (_bridgeProtocol is not null && _bridgeServer is not null)
+				{
+				if (ReferenceEquals (AppleTvPairingSessionState.Instance.CurrentProtocol, _bridgeProtocol))
+					_bridgeServer.BroadcastEvent (AppleTvBridgeProtocol.EVENT_DISCONNECTED);
+				_bridgeProtocol.BridgeEventRaised -= _bridgeServer.BroadcastEvent;
+				}
+			_bridgeHandlerRegistration?.ClearIfCurrent ();
+			}
 
 		base.Dispose ();
 		}
@@ -340,16 +354,21 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 		AppleTvBridgeServer bridgeServer = AppleTvBridgeServerRegistry.GetOrStart (uniqueId, LogDiagnostic);
 		var handler = new BridgeCommandHandler (protocol);
-		protocol.BridgeEventRaised += bridgeServer.BroadcastEvent;
+		lock (_bridgeLock)
+			{
+			if (_disposed)
+				return;
+			if (_bridgeProtocol is not null && _bridgeServer is not null)
+				_bridgeProtocol.BridgeEventRaised -= _bridgeServer.BroadcastEvent;
+			_bridgeServer = bridgeServer;
+			_bridgeProtocol = protocol;
+			protocol.BridgeEventRaised += bridgeServer.BroadcastEvent;
 
-		// Tracked so Dispose() below can detect and clear this instance's own
-		// handler registration if this driver instance is torn down (e.g. by a
-		// Crestron Home reinitialization) before a subsequent instance finishes
-		// reconnecting Companion Link and re-registers its own handler. Without
-		// this, a bridge command arriving in that window would still be routed
-		// to this now-disposed protocol, whose _session is null, so it would be
-		// silently dropped instead of reaching the live session.
-		_bridgeHandlerRegistration = AppleTvBridgeServerHandlerRegistration.Install (bridgeServer, handler);
+			// Keep one event subscription and route commands to the current protocol.
+			_bridgeHandlerRegistration = AppleTvBridgeServerHandlerRegistration.Install (bridgeServer, handler);
+			}
+		_ = protocol.RefreshStatusAsync ();
+		_ = protocol.RefreshAppsAsync ();
 		}
 
 	// Adapts AppleTvVideoServerProtocol.DispatchBridgeCommand to IAppleTvBridgeCommandHandler so

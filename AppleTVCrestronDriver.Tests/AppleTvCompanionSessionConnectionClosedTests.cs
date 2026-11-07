@@ -41,6 +41,7 @@ public sealed class AppleTvCompanionSessionConnectionClosedTests
 		AppleTvCompanionSession session = await ConnectSessionAsync (host).ConfigureAwait (false);
 		try
 			{
+			Assert.IsTrue (session.IsConnected);
 			var raised = new TaskCompletionSource<Exception> (TaskCreationOptions.RunContinuationsAsynchronously);
 			session.ConnectionClosed += exception => raised.TrySetResult (exception);
 
@@ -51,6 +52,7 @@ public sealed class AppleTvCompanionSessionConnectionClosedTests
 			Task completed = await Task.WhenAny (raised.Task, Task.Delay (TimeSpan.FromSeconds (5))).ConfigureAwait (false);
 			Assert.AreSame (raised.Task, completed, "Expected ConnectionClosed to fire after the remote end closed the socket.");
 			Assert.IsNull (raised.Task.Result, "A graceful remote close should report a null exception.");
+			Assert.IsFalse (session.IsConnected);
 			}
 		finally
 			{

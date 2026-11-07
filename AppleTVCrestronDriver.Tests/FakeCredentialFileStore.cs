@@ -21,31 +21,20 @@ internal sealed class FakeCredentialFileStore : ICredentialFileStore
 
 	public Stream OpenRead (string entryId) => new MemoryStream (_entries[entryId], writable: false);
 
-	public Stream CreateWrite (string entryId)
+	internal bool FailNextWrite { get; set; }
+
+	public void WriteAtomically (string entryId, byte[] contents)
 		{
-		return new CaptureOnDisposeStream (bytes => _entries[entryId] = bytes);
+		if (FailNextWrite)
+			{
+			FailNextWrite = false;
+			throw new IOException ("Synthetic credential commit failure.");
+			}
+		_entries[entryId] = (byte[])contents.Clone ();
 		}
 
 	internal void AddRawEntry (string entryId, byte[] content) => _entries[entryId] = content;
 
 	internal bool ContainsEntry (string entryId) => _entries.ContainsKey (entryId);
 
-	private sealed class CaptureOnDisposeStream : MemoryStream
-		{
-		private readonly System.Action<byte[]> _onDispose;
-		private bool _captured;
-
-		internal CaptureOnDisposeStream (System.Action<byte[]> onDispose) => _onDispose = onDispose;
-
-		protected override void Dispose (bool disposing)
-			{
-			if (disposing && !_captured)
-				{
-				_captured = true;
-				_onDispose (ToArray ());
-				}
-
-			base.Dispose (disposing);
-			}
-		}
 	}

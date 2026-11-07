@@ -3,6 +3,10 @@ name: Release Package
 on:
   workflow_dispatch:
     inputs:
+      prepared_manifest_sha256:
+        description: SHA-256 of reviewed ReleasePackages.json on the draft tagged release; publish its tested packages without rebuilding
+        required: false
+        type: string
       skip_desktop_checks:
         description: Reuse reviewed desktop results; package integrity checks still run
         required: false
@@ -33,6 +37,7 @@ permissions:
   actions: read
   checks: read
   contents: write
+  id-token: write
 
 concurrency:
   group: public-release
@@ -41,7 +46,7 @@ concurrency:
 
 jobs:
   build-and-upload-package:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
+    if: (github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 == '') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v') && !contains(github.event.release.body, '<!-- prepared-packages-published -->'))
     runs-on: windows-latest
     env:
       MANIFESTUTIL_VERSION: 27.0.24
@@ -77,7 +82,12 @@ jobs:
       - name: Check out AppleTVControlLibrary
         shell: pwsh
         run: |
-          git clone --depth 1 https://github.com/oznetmaster/AppleTVControlLibrary.git "$(Split-Path $env:GITHUB_WORKSPACE -Parent)\AppleTVControlLibrary"
+          $libraryPath = "$(Split-Path $env:GITHUB_WORKSPACE -Parent)\AppleTVControlLibrary"
+          git clone --depth 1 --branch v2.2.7 https://github.com/oznetmaster/AppleTVControlLibrary.git $libraryPath
+          if ($LASTEXITCODE -ne 0) { throw 'Failed to check out the pinned library tooling.' }
+          if ((git -C $libraryPath rev-parse HEAD).Trim() -ne 'b3e82737cc7bccc7f5bf10c7043140a4f9f3d112') {
+            throw 'Unexpected AppleTVControlLibrary tooling revision.'
+          }
 
       - name: Set up .NET SDK
         uses: actions/setup-dotnet@v4
@@ -328,13 +338,19 @@ jobs:
           PUBLIC_ARTIFACT_3: ${{ steps.extension_nuget_package.outputs.nupkg_path }}
         run: |
           ./tools/Assert-PublicDriverArtifacts.ps1 -Path @($env:PUBLIC_ARTIFACT_0, $env:PUBLIC_ARTIFACT_1, $env:PUBLIC_ARTIFACT_2, $env:PUBLIC_ARTIFACT_3)
+      - name: Authenticate to NuGet with GitHub OIDC
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        with:
+          user: oznetmaster
+
       - name: Publish NuGet packages
         shell: pwsh
         env:
-          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
         run: |
           if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) {
-            throw 'NUGET_API_KEY secret is not configured.'
+            throw 'NuGet Trusted Publishing did not provide a temporary credential.'
           }
 
           dotnet nuget push "${{ steps.nuget_package.outputs.nupkg_path }}" --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
@@ -362,3 +378,63 @@ jobs:
             ${{ steps.package.outputs.pkg_path }}
             ${{ steps.extension_package.outputs.pkg_path }}
           fail_on_unmatched_files: true
+  publish-prepared:
+    if: github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 != ''
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify shared release policy
+        uses: oznetmaster/CrestronHomeNUnit/.github/actions/release-validation@2ae8197c6685099c2133e7bb962d1f3568aae9c3
+        with:
+          required-checks: "${{ vars.RELEASE_REQUIRED_CHECKS }}"
+          hosted-workflows: '["tests.yml","workflow-discovery.yml"]'
+          skip-hardware-checks: "${{ inputs.skip_hardware_checks }}"
+          hardware-skip-reason: "${{ inputs.hardware_skip_reason }}"
+          skip-desktop-checks: "${{ inputs.skip_desktop_checks }}"
+          desktop-skip-reason: "${{ inputs.desktop_skip_reason }}"
+          validation-commit: "${{ inputs.validation_commit }}"
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Download and verify tested packages
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARED_MANIFEST_SHA256: ${{ inputs.prepared_manifest_sha256 }}
+        run: |
+          $inputDir = Join-Path $env:RUNNER_TEMP 'prepared-driver-packages'
+          gh release download $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --pattern ReleasePackages.json --pattern AppleTVCrestronCloudDriver.pkg --pattern AppleTVCrestronExtensionDriver.pkg --dir $inputDir
+          if ($LASTEXITCODE -ne 0) { throw 'Prepared package download failed.' }
+          ./tools/Prepare-VerifiedReleasePackages.ps1 -Tag $env:GITHUB_REF_NAME -PackageDirectory $inputDir -ManifestSha256 $env:PREPARED_MANIFEST_SHA256 -OutputDirectory (Join-Path $env:RUNNER_TEMP 'prepared-nuget')
+      - name: Authenticate to NuGet with GitHub OIDC
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1
+        with:
+          user: oznetmaster
+      - name: Publish both NuGet packages
+        shell: pwsh
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NUGET_API_KEY)) { throw 'NuGet Trusted Publishing did not provide a temporary credential.' }
+          $packages = @(Get-ChildItem (Join-Path $env:RUNNER_TEMP 'prepared-nuget') -Filter '*.nupkg')
+          if ($packages.Count -ne 2) { throw 'Expected both driver NuGet packages.' }
+          foreach ($package in $packages) {
+            dotnet nuget push $package.FullName --api-key $env:NUGET_API_KEY --source https://api.nuget.org/v3/index.json --skip-duplicate
+            if ($LASTEXITCODE -ne 0) { throw "Publication failed for $($package.Name)." }
+          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AppleTV-verified-release-nuget
+          path: ${{ runner.temp }}/prepared-nuget/*.nupkg
+          if-no-files-found: error
+      - name: Publish the prepared GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $release = gh release view $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --json isDraft,body | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or !$release.isDraft -or !$release.body.Contains('<!-- prepared-packages-published -->')) { throw 'The prepared draft release marker is missing.' }
+          gh release edit $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --draft=false --latest
+          if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }

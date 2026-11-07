@@ -10,6 +10,14 @@ Both packages are released together from this repository under the same version 
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [shared development and validation history](../DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.4.5](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) - 2026-11-07
+
+- Reject callbacks from superseded bridge clients and prevent an in-flight connection from reactivating a cleared or disposed driver.
+- Wait for the Video Server's confirmed connection state before reporting ready. Refresh connection, power, volume support and keyboard focus when the bridge reconnects.
+- Clear keyboard text and volume controls while unavailable. Cancel stale status-reply warnings when configuration changes.
+- Restrict routine informational diagnostics to Debug builds and omit keyboard payloads from bridge diagnostics.
+- Share the Video Server's safer credential storage reader while retaining the existing pairing and bridge identities.
+
 ## [1.4.4] - 2026-09-22
 
 - Update stable Crestron SDK and Microsoft compatibility dependencies; the video driver uses AppleTvControlLibrary 2.2.6.

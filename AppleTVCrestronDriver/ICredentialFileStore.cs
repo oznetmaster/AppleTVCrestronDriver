@@ -25,7 +25,7 @@ internal interface ICredentialFileStore
 	Stream OpenRead (string entryId);
 
 	/// <summary>
-	/// Creates (or overwrites) the entry with the given identifier for writing.
+	/// Commits a complete record, retaining any existing entry if writing fails.
 	/// </summary>
-	Stream CreateWrite (string entryId);
+	void WriteAtomically (string entryId, byte[] contents);
 	}

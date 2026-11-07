@@ -15,6 +15,8 @@ using Crestron.RAD.Common.Transports;
 using Crestron.RAD.DeviceTypes.VideoServer;
 using Crestron.SimplSharp;
 
+using Interlocked = System.Threading.Interlocked;
+
 namespace AppleTV.CrestronDriver;
 
 internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleTvProtocol
@@ -31,6 +33,10 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 	// direction's down/up state is independent, so an overlapping Press for a
 	// new direction cannot clobber the release bookkeeping for a previous one.
 	private AppleTvCompanionSession _session;
+	private readonly object _sessionLock = new ();
+	private readonly CancellationTokenSource _lifetimeCancellation = new ();
+	private bool _disposed;
+	private int _connectionVersion;
 	private readonly Dictionary<ArrowDirections, bool> _pressedArrowDirections = new ()
 		{
 		{ ArrowDirections.Up, false },
@@ -102,16 +108,34 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 
 	internal async Task ConnectCompanionAsync (string address, int port, HapCredentials credentials, string stableIdentifier, string appleTvName)
 		{
-		_session?.Dispose ();
+		int version = Interlocked.Increment (ref _connectionVersion);
+		AppleTvCompanionSession previous;
+		lock (_sessionLock)
+			{
+			if (_disposed)
+				throw new ObjectDisposedException (nameof (AppleTvVideoServerProtocol));
+			previous = _session;
+			_session = null;
+			SetCompanionConnectionState (false);
+			}
+		previous?.Dispose ();
 		AppleTvCompanionSession session = await AppleTvCompanionSession.ConnectAsync (
 			address,
 			port,
 			credentials,
 			stableIdentifier,
 			appleTvName,
-			CancellationToken.None,
+			_lifetimeCancellation.Token,
 			LogDiagnostic).ConfigureAwait (false);
-		_session = session;
+		lock (_sessionLock)
+			{
+			if (_disposed || version != Volatile.Read (ref _connectionVersion) || !session.IsConnected)
+				{
+				session.Dispose ();
+				throw new OperationCanceledException ("The Apple TV connection was superseded.");
+				}
+			_session = session;
+			}
 
 		// Captures 'session' rather than reading _session at invocation time,
 		// so an event raised by a since-superseded session (e.g. its own
@@ -120,7 +144,11 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		// current connection dropping.
 		session.ConnectionStateChanged += connected => HandleSessionConnectionStateChanged (session, connected);
 		session.ConnectionClosed += exception => HandleSessionConnectionClosed (session, exception);
-		session.PowerStateChanged += SetPowerState;
+		session.PowerStateChanged += isOn =>
+			{
+			if (ReferenceEquals (session, _session))
+				SetPowerState (isOn);
+			};
 		if (session.Api is not null)
 			{
 			session.Api.SystemStatusChanged += (sender, e) => HandleSystemStatusChangedForBridge (session);
@@ -128,15 +156,19 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			session.Api.TextFocusStateChanged += (sender, e) => _ = _keyboardBridge.HandleTextFocusStateChangedAsync (session);
 			}
 
-		SetCompanionConnectionState (true);
+		lock (_sessionLock)
+			{
+			if (_disposed || !ReferenceEquals (session, _session) || !session.IsConnected)
+				throw new OperationCanceledException ("The Apple TV connection was disposed.");
+			SetCompanionConnectionState (true);
+			SetPowerState (session.IsPoweredOn);
+			}
 
 		// ConnectAsync's initial best-effort power snapshot does not raise
 		// SystemStatusChanged even when it successfully learns the state, so
 		// PowerIsOn would otherwise be left at its default until the next
 		// pushed transition. Seed it explicitly from what is already known.
-		SetPowerState (session.IsPoweredOn);
-		_ = RefreshStatusAsync ();
-		_ = RefreshAppsAsync ();
+		// The owner publishes the initial bridge snapshot after attaching its subscriber.
 		}
 
 	// Re-emits the currently known power/system-status/volume-support state to any connected
@@ -154,7 +186,8 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 	internal async Task RefreshStatusAsync ()
 		{
 		AppleTvCompanionSession session = _session;
-		if (session?.Api is null)
+		BridgeEventRaised?.Invoke (IsConnected ? AppleTvBridgeProtocol.EVENT_CONNECTED : AppleTvBridgeProtocol.EVENT_DISCONNECTED);
+		if (session?.Api is null || !IsConnected)
 			{
 			return;
 			}
@@ -175,6 +208,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			}
 
 		HandleVolumeSupportChangedForBridge (session);
+		await _keyboardBridge.HandleTextFocusStateChangedAsync (session).ConfigureAwait (false);
 		}
 
 	// Relays the Apple TV's finer-grained system status (Awake/Screensaver/Idle/Asleep/Unknown -
@@ -447,14 +481,15 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 	// does not have to wait for an explicit CMD:REFRESHAPPS round trip to populate its app list.
 	internal async Task RefreshAppsAsync ()
 		{
-		if (_session?.Api is null)
-			{
+		AppleTvCompanionSession session = _session;
+		if (session?.Api is null)
 			return;
-			}
 
 		try
 			{
-			Dictionary<string, string> apps = await _session.Api.AppListAsync ().ConfigureAwait (false);
+			Dictionary<string, string> apps = await session.Api.AppListAsync ().ConfigureAwait (false);
+			if (!ReferenceEquals (session, _session))
+				return;
 			var ordered = new List<(string BundleId, string Name)> ();
 			foreach (KeyValuePair<string, string> app in apps)
 				{
@@ -474,14 +509,15 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 	// connected bridge client as an EVT:MUTE: line.
 	private async Task ToggleMuteAsync ()
 		{
-		if (_session?.Api is null)
-			{
+		AppleTvCompanionSession session = _session;
+		if (session?.Api is null)
 			return;
-			}
 
 		try
 			{
-			bool isMuted = await _session.Api.ToggleMuteAsync ().ConfigureAwait (false);
+			bool isMuted = await session.Api.ToggleMuteAsync ().ConfigureAwait (false);
+			if (!ReferenceEquals (session, _session))
+				return;
 			BridgeEventRaised?.Invoke (AppleTvBridgeProtocol.EVENT_MUTE_PREFIX + (isMuted ? "1" : "0"));
 			}
 		catch (Exception exception)
@@ -494,10 +530,21 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		{
 		// Make sure any held arrow keys are never left "stuck down" on the device
 		// if the driver is disposed/reloaded while a key is pressed.
-		ReleaseAllPressedArrowKeys ();
-		_session?.Dispose ();
-		_session = null;
-		_sendGate.Dispose ();
+		AppleTvCompanionSession session;
+		lock (_sessionLock)
+			{
+			if (_disposed)
+				return;
+			ReleaseAllPressedArrowKeys ();
+			_disposed = true;
+			_ = Interlocked.Increment (ref _connectionVersion);
+			session = _session;
+			_session = null;
+			SetCompanionConnectionState (false);
+			}
+		_lifetimeCancellation.Cancel ();
+		session?.Dispose ();
+		// Pending sends still release their gate as cancellation unwinds.
 		base.Dispose ();
 		}
 

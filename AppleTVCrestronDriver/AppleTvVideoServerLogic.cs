@@ -344,8 +344,16 @@ internal sealed class AppleTvVideoServerLogic
 				}
 
 			session.Target = new PairingTarget (device.Address, device.Port, device.UniqueId, device.Name);
+			PairingTarget target = session.Target;
 			LogDiagnostic ($"Starting pairing for '{device.Name}'. Enter the PIN shown on the Apple TV.");
-			session.Pairing = await AppleTvCompanionPairing.BeginAsync (session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
+			AppleTvCompanionPairing pairing = await AppleTvCompanionPairing.BeginAsync (target.Address, target.Port, default).ConfigureAwait (false);
+			if (!string.Equals (session.CurrentProtocol?.AppleTvName?.Trim (), target.Name, StringComparison.OrdinalIgnoreCase))
+				{
+				pairing.Dispose ();
+				session.Target = PairingTarget.Empty;
+				return;
+				}
+			session.Pairing = pairing;
 			SetAppleTvNameStatus ("Pairing is active; enter the code shown on the Apple TV.");
 			SetPairNowStatus ("Pairing is now in progress. A pairing code is displayed on the Apple TV.");
 
@@ -410,6 +418,12 @@ internal sealed class AppleTvVideoServerLogic
 				LogDiagnostic ("Pairing PIN was ignored because pairing is no longer active.");
 				return;
 				}
+			PairingTarget target = session.Target;
+			if (!string.Equals (protocol.AppleTvName?.Trim (), target.Name, StringComparison.OrdinalIgnoreCase))
+				{
+				ClearPairing ();
+				return;
+				}
 
 			// Never start the handshake on a stale instance - stash the PIN
 			// instead and let the new instance's own Initialize() run the
@@ -422,8 +436,13 @@ internal sealed class AppleTvVideoServerLogic
 				}
 
 			LogDiagnostic ($"Completing pairing for '{protocol.AppleTvName}'.");
-			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, protocol.AppleTvName, session.Target.Address, session.Target.Port, default).ConfigureAwait (false);
-			device.UniqueId = session.Target.UniqueId;
+			AppleTvStoredDevice device = await session.Pairing.CompleteAsync (pin, target.Name, target.Address, target.Port, default).ConfigureAwait (false);
+			if (!string.Equals (session.CurrentProtocol?.AppleTvName?.Trim (), target.Name, StringComparison.OrdinalIgnoreCase))
+				{
+				ClearPairing ();
+				return;
+				}
+			device.UniqueId = target.UniqueId;
 			AppleTvStoredDevice.Save (device, _credentialStore);
 			SaveStoredDevice (device);
 			LogDiagnostic ($"Credentials were saved for '{device.Name}'.");
@@ -692,6 +711,10 @@ internal sealed class AppleTvVideoServerLogic
 					if (cancellationToken.IsCancellationRequested)
 						return;
 					LogDiagnostic ($"Connected to '{device.Name}' using its current stored credentials.");
+					device.Address = discovered.Address.ToString ();
+					device.Port = discovered.Port;
+					device.Name = discovered.Name;
+					SaveStoredDevice (device);
 					SetPairedStatus (device.Name);
 					return;
 					}
@@ -708,9 +731,12 @@ internal sealed class AppleTvVideoServerLogic
 					{
 					try
 						{
-						await connect (protocol, currentDevice, currentDevice.Address, currentDevice.Port).ConfigureAwait (false);
+						await connect (protocol, currentDevice, discovered.Address.ToString (), discovered.Port).ConfigureAwait (false);
 						if (cancellationToken.IsCancellationRequested)
 							return;
+						currentDevice.Address = discovered.Address.ToString ();
+						currentDevice.Port = discovered.Port;
+						currentDevice.Name = discovered.Name;
 						SaveStoredDevice (currentDevice);
 						LogDiagnostic ($"Connected to '{currentDevice.Name}' using its current stored credentials.");
 						SetPairedStatus (currentDevice.Name);
@@ -718,6 +744,8 @@ internal sealed class AppleTvVideoServerLogic
 						}
 					catch (Exception exception)
 						{
+						if (cancellationToken.IsCancellationRequested)
+							return;
 						LogDiagnostic ($"Reloaded stored credentials for '{currentDevice.Name}' also failed to connect; continuing endpoint recovery.");
 						LogException (exception);
 						}
@@ -730,23 +758,22 @@ internal sealed class AppleTvVideoServerLogic
 					|| device.Port != discovered.Port
 					|| !string.Equals (device.Name, discovered.Name, StringComparison.Ordinal);
 
-				device.Address = discoveredAddress;
-				device.Port = discovered.Port;
-				device.Name = discovered.Name;
 				if (endpointChanged)
 					{
-					AppleTvStoredDevice.Save (device, _credentialStore);
-					LogDiagnostic ($"Saved endpoint refreshed for '{device.Name}'; reconnecting.");
+					LogDiagnostic ($"Endpoint refreshed for '{device.Name}'; reconnecting.");
 					}
 				else
 					{
 					LogDiagnostic ($"Discovered endpoint for '{device.Name}' is unchanged; reconnecting without rewriting stored credentials.");
 					}
 
-				SaveStoredDevice (device);
-				await connect (protocol, device, device.Address, device.Port).ConfigureAwait (false);
+				await connect (protocol, device, discoveredAddress, discovered.Port).ConfigureAwait (false);
 				if (cancellationToken.IsCancellationRequested)
 					return;
+				device.Address = discoveredAddress;
+				device.Port = discovered.Port;
+				device.Name = discovered.Name;
+				SaveStoredDevice (device);
 				LogDiagnostic ($"Connected to '{device.Name}' after endpoint recovery.");
 				SetPairedStatus (device.Name);
 				return;

@@ -1,5 +1,7 @@
 # AppleTVCrestronExtensionDriver
 
+Version **1.4.5** is released with the Video Server driver. [Download both packages](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) or get [CrestronHomeDriver.Apple.AppleTVExtension 1.4.5 on NuGet](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTVExtension/1.4.5).
+
 A **Crestron Home Entity V2 Extension driver** that adds Apple TV app selection and remote-control UI (arrow keys, D-pad, Home/Menu, play/pause/rewind/fast-forward, previous/next track, volume, and on-screen keyboard text entry) to a room, driven over a loopback bridge to the [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) Video Server driver.
 
 > **Trademark notice and disclaimer:** Apple, Apple TV, and tvOS are trademarks of Apple Inc., registered in the U.S. and other countries. This project is an independent, unofficial driver and is **not affiliated with, endorsed by, sponsored by, or approved by Apple Inc.** in any way. "Apple TV" and other Apple product names are used solely to describe compatibility and interoperability. No Apple software, assets, or confidential documentation are included in or derived for this repository. Crestron and Crestron Home are trademarks or registered trademarks of Crestron Electronics, Inc. This project is not affiliated with, endorsed by, or sponsored by Crestron Electronics, Inc.
@@ -31,6 +33,10 @@ Because the two drivers are released together and must stay compatible, both are
 ---
 
 ## Installation
+
+Update this extension and its Video Server driver from the same release. The Entity V2 extension supports an in-place update. Updating the V1 Video Server requires a full processor reboot. Keep the existing paired Video Server device and its saved configuration during the update.
+
+Allow the Apple TV to finish sleeping before turning it back on. An immediate wake during a sleep transition was ignored in live testing; a five-second settling pause worked. This does not establish a minimum delay.
 
 ### Prerequisites
 
@@ -66,7 +72,6 @@ Once the Apple TV Name is set and matches a configured Video Server driver insta
 
 ### Dependencies
 
-- [AppleTVControlLibrary](https://www.nuget.org/packages/AppleTVControlLibrary) NuGet package
 - [Crestron.DeviceDrivers.DevKit](https://www.nuget.org/packages/Crestron.DeviceDrivers.DevKit) NuGet package
 - [Crestron.SimplSharp.SDK.Library](https://www.nuget.org/packages/Crestron.SimplSharp.SDK.Library) NuGet package
 - `.NET Framework 4.7.2`
@@ -100,12 +105,11 @@ The build pipeline compiles this project targeting `net472`, bumps `DriverVersio
 The shared [NUnit suite](../AppleTVCrestronDriver.Tests) includes **17 dedicated extension-driver
 logic tests** covering bridge feedback parsing, app-list sorting, selection preservation and
 clearing stale selections. Bridge and keyboard tests provide additional shared coverage. These
-are part of the 97 tests run by CI and by the [processor test package](../AppleTVCrestronDriver.ProcessorTests/README.md).
+are part of the 130 offline tests run by CI and by the [processor test package](../AppleTVCrestronDriver.ProcessorTests/README.md).
 
 Run the `AppleTvExtensionDriverLogicTests` fixture in Visual Studio Test Explorer or discover
 and select it in the Windows NUnit runner. The same processor package tests both drivers and
-provides its own Utility tile. These tests do not yet exercise the complete Entity V2 lifecycle
-or render the production UI.
+provides its own Utility tile. The separate real-SDK lifecycle suite covers 13 construction, configuration, bridge-feedback and disposal cases. UI rendering is checked on the installed driver.
 
 ## Release Notes
 

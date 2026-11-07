@@ -44,9 +44,15 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 	internal static async Task<AppleTvCompanionPairing> BeginAsync (string host, int port, CancellationToken cancellationToken)
 		{
 		var client = new TcpClient ();
-		using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+		try
 			{
-			await client.ConnectAsync (host, port).ConfigureAwait (false);
+			using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+				await client.ConnectAsync (host, port).ConfigureAwait (false);
+			}
+		catch
+			{
+			client.Dispose ();
+			throw;
 			}
 
 		var connection = new CompanionConnection ();
@@ -75,6 +81,8 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 				throw new InvalidOperationException ($"The Apple TV rejected the pairing request (error code {errorCode}). The Apple TV may already be in an active pairing session; try again in a few seconds.");
 				}
 
+			Tlv8.ValidatePairingResponse (m2, 2);
+
 			return !m2.TryGetValue ((int)TlvValue.Salt, out pairing._atvSalt) || !m2.TryGetValue ((int)TlvValue.PublicKey, out pairing._atvPublicKey)
 				? throw new InvalidOperationException ("The Apple TV's pairing response did not include the expected salt/public key values.")
 				: pairing;
@@ -100,10 +108,10 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 			FrameType.PS_Next,
 			new Dictionary<string, object> { { "_pd", m3 }, { "_pwTy", 1 } },
 			cancellationToken).ConfigureAwait (false);
-		if (Tlv8.ReadTlv ((byte[])m4Response["_pd"]).ContainsKey ((int)TlvValue.Error))
-			{
-			throw new AuthenticationException ("Apple TV pairing failed. Verify the displayed PIN.");
-			}
+		Dictionary<int, byte[]> m4 = Tlv8.ReadTlv ((byte[])m4Response["_pd"]);
+		Tlv8.ValidatePairingResponse (m4, 4);
+		m4.TryGetValue ((int)TlvValue.Proof, out byte[] serverProof);
+		_srp.VerifyServerProof (serverProof);
 
 		byte[] m5 = Tlv8.WriteTlv (new Dictionary<int, byte[]>
 			{
@@ -114,7 +122,9 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 			FrameType.PS_Next,
 			new Dictionary<string, object> { { "_pd", m5 }, { "_pwTy", 1 } },
 			cancellationToken).ConfigureAwait (false);
-		HapCredentials credentials = _srp.Step4 (Tlv8.ReadTlv ((byte[])m6Response["_pd"])[(int)TlvValue.EncryptedData]);
+		Dictionary<int, byte[]> m6 = Tlv8.ReadTlv ((byte[])m6Response["_pd"]);
+		Tlv8.ValidatePairingResponse (m6, 6);
+		HapCredentials credentials = _srp.Step4 (m6[(int)TlvValue.EncryptedData]);
 
 		return new AppleTvStoredDevice
 			{
@@ -137,6 +147,7 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 			}
 
 		_disposed = true;
+		_connection.Fault (new ObjectDisposedException (nameof (AppleTvCompanionPairing)));
 		_client.Close ();
 		}
 
@@ -163,6 +174,8 @@ internal sealed class AppleTvCompanionPairing : IDisposable
 				int read = _client.GetStream ().Read (buffer, 0, buffer.Length);
 				if (read == 0)
 					{
+					if (!_disposed)
+						_connection.Fault (null);
 					return;
 					}
 

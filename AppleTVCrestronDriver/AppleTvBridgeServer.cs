@@ -51,7 +51,7 @@ internal sealed class AppleTvBridgeServer : IDisposable
 		Port = port;
 		}
 
-	internal int Port { get; }
+	internal int Port { get; private set; }
 
 	/// <summary>
 	/// The number of currently connected bridge clients. Exposed only so tests can deterministically
@@ -75,6 +75,7 @@ internal sealed class AppleTvBridgeServer : IDisposable
 		{
 		var server = new AppleTvBridgeServer (port, log);
 		server._listener.Start ();
+		server.Port = ((IPEndPoint)server._listener.LocalEndpoint).Port;
 		server._log?.Invoke ($"Bridge server listening on 127.0.0.1:{port}.");
 		_ = server.AcceptLoopAsync ();
 		return server;
@@ -205,12 +206,14 @@ internal sealed class AppleTvBridgeServer : IDisposable
 				if (client.Connected)
 					{
 					NetworkStream stream = client.GetStream ();
-					stream.Write (payload, 0, payload.Length);
+					lock (stream)
+						stream.Write (payload, 0, payload.Length);
 					}
 				}
 			catch (Exception)
 				{
 				_ = _clients.TryRemove (client, out _);
+				client.Dispose ();
 				}
 			}
 		}

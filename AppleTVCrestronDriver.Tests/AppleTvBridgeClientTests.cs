@@ -2,6 +2,8 @@
 // Licensed under the MIT License with Commons Clause. See LICENSE file in the project root for full license information.
 
 using System;
+using System.Collections.Concurrent;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -114,6 +116,43 @@ public sealed class AppleTvBridgeClientTests
 
 		Task completed = await Task.WhenAny (disconnected.Task, Task.Delay (TimeSpan.FromSeconds (5))).ConfigureAwait (false);
 		Assert.AreSame (disconnected.Task, completed, "Expected Disconnected to be raised when the server closes the connection.");
+		Assert.IsFalse (client.IsConnected, "A closed bridge must stop reporting an active socket.");
+		}
+
+	[Test]
+	public async Task ConcurrentCommandsAreDeliveredAsCompleteLinesWithoutLoggingTheirContents ()
+		{
+		using AppleTvBridgeServer server = AppleTvBridgeServer.Start (0, log: null);
+		var received = new ConcurrentQueue<string> ();
+		server.Handler = new ActionHandler (received.Enqueue);
+		var logs = new ConcurrentQueue<string> ();
+		using var client = new AppleTvBridgeClient (logs.Enqueue);
+		await client.ConnectAsync (server.Port, CancellationToken.None);
+		string[] commands = Enumerable.Range (0, 32).Select (index => "CMD:SETTEXT:" + index + new string ('A', 16384)).ToArray ();
+		await Task.WhenAll (commands.Select (command => Task.Run (() => client.SendCommandAsync (command))));
+		await WaitUntilAsync (() => received.Count == commands.Length);
+		CollectionAssert.AreEquivalent (commands, received.ToArray ());
+		Assert.IsFalse (logs.Any (line => line.Contains ("CMD:SETTEXT:")), "Keyboard payloads must not enter diagnostic logs.");
+		}
+
+	[Test]
+	public async Task ConcurrentBroadcastsAreReceivedAsCompleteLines ()
+		{
+		using AppleTvBridgeServer server = AppleTvBridgeServer.Start (0, log: null);
+		using var client = new AppleTvBridgeClient ();
+		var received = new ConcurrentQueue<string> ();
+		client.LineReceived += received.Enqueue;
+		await client.ConnectAsync (server.Port, CancellationToken.None);
+		await WaitUntilAsync (() => server.ConnectedClientCountForTests == 1);
+		string[] events = Enumerable.Range (0, 32).Select (index => "EVT:TEXT:" + index + new string ('B', 16384)).ToArray ();
+		await Task.WhenAll (events.Select (line => Task.Run (() => server.BroadcastEvent (line))));
+		await WaitUntilAsync (() => received.Count == events.Length);
+		CollectionAssert.AreEquivalent (events, received.ToArray ());
+		}
+
+	private sealed class ActionHandler (Action<string> receive) : IAppleTvBridgeCommandHandler
+		{
+		public void HandleBridgeCommand (string line) => receive (line);
 		}
 
 	private static int GetFreeLoopbackPort ()

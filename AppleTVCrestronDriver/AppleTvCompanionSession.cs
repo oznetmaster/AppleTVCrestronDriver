@@ -58,6 +58,8 @@ internal sealed class AppleTvCompanionSession : IDisposable
 	// ever reporting "on" once Companion Link is connected.
 	internal event Action<bool> PowerStateChanged;
 
+	internal bool IsConnected => !_disposed && _isConnected && !_connection.IsFaulted;
+
 	// Mirrors CompanionApi's own Asleep/Unknown -> off mapping so callers can
 	// read the currently known power state without waiting for a change event
 	// (e.g. to seed Crestron Home's PowerIsOn right after connect, since
@@ -78,9 +80,15 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		{
 		var client = new TcpClient ();
 		log?.Invoke ("Connecting TCP socket.");
-		using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+		try
 			{
-			await client.ConnectAsync (host, port).ConfigureAwait (false);
+			using (cancellationToken.Register (state => ((TcpClient)state).Close (), client))
+				await client.ConnectAsync (host, port).ConfigureAwait (false);
+			}
+		catch
+			{
+			client.Dispose ();
+			throw;
 			}
 
 		log?.Invoke ("TCP socket connected; starting pair verification.");
@@ -93,6 +101,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 		try
 			{
+			using CancellationTokenRegistration cancellation = cancellationToken.Register (session.Dispose);
 			await session.PairVerifyAsync (credentials, cancellationToken).ConfigureAwait (false);
 			log?.Invoke ("Pair verification succeeded; starting Companion API session.");
 			session.Api = new CompanionApi (
@@ -112,6 +121,9 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			// fault detection below.
 			session.Api.ConnectionClosed += session.HandleConnectionClosed;
 			await session.Api.ConnectAsync ().ConfigureAwait (false);
+			cancellationToken.ThrowIfCancellationRequested ();
+			if (session._connection.IsFaulted)
+				throw new InvalidOperationException ("The Apple TV connection closed during initialization.");
 			log?.Invoke ("Companion API session connected.");
 			#if DEBUG
 			session.Api.MediaControlCapabilitiesChanged += session.HandleMediaControlCapabilitiesChanged;
@@ -166,6 +178,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			 new Dictionary<string, object> { { "_pd", pv1 }, { "_auTy", 4 } },
 			 cancellationToken).ConfigureAwait (false);
 		Dictionary<int, byte[]> pv2 = Tlv8.ReadTlv ((byte[])pv2Response["_pd"]);
+		Tlv8.ValidatePairingResponse (pv2, 2);
 		byte[] pv3 = Tlv8.WriteTlv (new Dictionary<int, byte[]>
 			{
 				 { (int)TlvValue.SeqNo, new byte[] { 3 } },
@@ -175,10 +188,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			 FrameType.PV_Next,
 			 new Dictionary<string, object> { { "_pd", pv3 } },
 			 cancellationToken).ConfigureAwait (false);
-		if (Tlv8.ReadTlv ((byte[])pv4Response["_pd"]).ContainsKey ((int)TlvValue.Error))
-			{
-			throw new AuthenticationException ("Apple TV pair verification failed.");
-			}
+		Tlv8.ValidatePairingResponse (Tlv8.ReadTlv ((byte[])pv4Response["_pd"]), 4);
 
 		(byte[] outputKey, byte[] inputKey) = srp.Verify2 (CompanionProtocol.SRP_SALT, CompanionProtocol.SRP_OUTPUT_INFO, CompanionProtocol.SRP_INPUT_INFO);
 		_connection.EnableEncryption (outputKey, inputKey);
@@ -240,6 +250,7 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			}
 
 		SetConnectionState (false);
+		_connection.Fault (new ObjectDisposedException (nameof (AppleTvCompanionSession)));
 		_client.Close ();
 		}
 

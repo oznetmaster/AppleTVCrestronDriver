@@ -17,6 +17,49 @@ namespace AppleTVCrestronDriver.Tests;
 public sealed class AppleTvStoredDeviceStorageTests
 	{
 	[Test]
+	public void FailedCredentialCommitPreservesTheExistingRecord ()
+		{
+		FakeCredentialFileStore store = new ();
+		AppleTvStoredDevice.Save (new AppleTvStoredDevice { Name = "Original", UniqueId = "identity", Ltpk = [1], Ltsk = [2], AtvId = [3], ClientId = [4] }, store);
+		store.FailNextWrite = true;
+		_ = NUnit.Framework.Assert.Throws<IOException> (() => AppleTvStoredDevice.Save (new AppleTvStoredDevice { Name = "Changed", UniqueId = "identity" }, store));
+		AppleTvStoredDevice original = AppleTvStoredDevice.LoadForName ("Original", store);
+		NUnit.Framework.Assert.That (original.IsPaired, Is.True);
+		NUnit.Framework.Assert.That (original.Ltsk, Is.EqualTo (new byte[] { 2 }));
+		}
+
+	[Test]
+	public void ReplacingCredentialRecordPreservesUnknownTypedExtensionData ()
+		{
+		FakeCredentialFileStore store = new ();
+		store.AddRawEntry ("IDENTITY.json", Encoding.UTF8.GetBytes ("{\"Name\":\"Old\",\"UniqueId\":\"identity\",\"FutureField\":{\"Nested\":\"keep\"}}"));
+		AppleTvStoredDevice.Save (new AppleTvStoredDevice { Name = "New", UniqueId = "identity" }, store);
+		using Stream stream = store.OpenRead ("IDENTITY.json");
+		using var reader = new StreamReader (stream);
+		StringAssert.Contains ("\"FutureField\":{\"Nested\":\"keep\"}", reader.ReadToEnd ());
+		NUnit.Framework.Assert.That (AppleTvStoredDevice.LoadForName ("New", store), Is.Not.Null);
+		}
+
+	[Test]
+	public void AtomicFileCommitReplacesCompleteRecordsAndCleansTemporaryFiles ()
+		{
+		string directory = Path.Combine (TestContext.CurrentContext.WorkDirectory, "credential-commit-" + System.Guid.NewGuid ().ToString ("N"));
+		Directory.CreateDirectory (directory);
+		try
+			{
+			string path = Path.Combine (directory, "synthetic.json");
+			CrestronCredentialFileStore.WriteFileAtomically (path, Encoding.UTF8.GetBytes ("first synthetic record"));
+			CrestronCredentialFileStore.WriteFileAtomically (path, Encoding.UTF8.GetBytes ("complete replacement"));
+			NUnit.Framework.Assert.That (File.ReadAllText (path), Is.EqualTo ("complete replacement"));
+			NUnit.Framework.Assert.That (Directory.GetFiles (directory), Has.Length.EqualTo (1));
+			}
+		finally
+			{
+			Directory.Delete (directory, true);
+			}
+		}
+
+	[Test]
 	public void Save_ThenLoadForName_RoundTripsAllFields ()
 		{
 		FakeCredentialFileStore store = new ();

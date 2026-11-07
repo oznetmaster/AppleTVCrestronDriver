@@ -15,6 +15,7 @@ using Crestron.DeviceDrivers.SDK;
 using Crestron.DeviceDrivers.SDK.EntityModel;
 
 using AppleTV.CrestronDriver.Extension;
+using AppleTV.CrestronDriver;
 
 namespace AppleTVCrestronDriver.Tests;
 
@@ -53,6 +54,32 @@ public sealed class ExtensionLifecycleTests
 	private object Call (string method, params object[] args) => typeof (AppleTvExtensionDriver).GetMethod (method, BindingFlags.Instance | BindingFlags.NonPublic).Invoke (_driver, args);
 	private void Line (string line) => Call ("HandleBridgeLine", line);
 	private T State<T> (string property) => _driver.GetState ().PropertyValues[property].GetValue<T> ();
+	[Test]
+	public void SupersededBridgeCallbacksCannotChangeCurrentEntityState ()
+		{
+		using var oldClient = new AppleTvBridgeClient ();
+		using var currentClient = new AppleTvBridgeClient ();
+		typeof (AppleTvExtensionDriver).GetField ("_bridgeClient", BindingFlags.Instance | BindingFlags.NonPublic).SetValue (_driver, currentClient);
+		Call ("HandleCurrentBridgeLine", currentClient, "EVT:CONNECTED");
+		Call ("HandleCurrentBridgeLine", oldClient, "EVT:DISCONNECTED");
+		Call ("HandleCurrentBridgeLine", oldClient, "EVT:POWER:On");
+		Call ("HandleCurrentBridgeDisconnected", oldClient);
+		Assert.That (_driver.OnlineIndicatorIsOnline, Is.True);
+		Assert.That (_driver.PowerIsOn, Is.False);
+		Assert.That (_driver.StatusSummary, Is.EqualTo ("Connected"));
+		}
+
+	[Test]
+	public void DisposalSuppressesLateBridgeCallbacks ()
+		{
+		using var client = new AppleTvBridgeClient ();
+		typeof (AppleTvExtensionDriver).GetField ("_bridgeClient", BindingFlags.Instance | BindingFlags.NonPublic).SetValue (_driver, client);
+		_driver.Dispose ();
+		Call ("HandleCurrentBridgeLine", client, "EVT:CONNECTED");
+		Call ("HandleCurrentBridgeDisconnected", client);
+		Assert.That (_driver.OnlineIndicatorIsOnline, Is.False);
+		}
+
 	[Test]
 	public void InitialSnapshot_HasUnavailableStateAndUsableSelectionPlaceholder ()
 		{

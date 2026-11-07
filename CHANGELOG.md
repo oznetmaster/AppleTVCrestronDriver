@@ -11,6 +11,14 @@ under the same version tag.
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [development and validation history](DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.4.5](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5) - 2026-11-07
+
+- Use AppleTVControlLibrary and its Discovery package 2.2.7. Validate the accessory's SRP proof and every expected pairing response before accepting a new pairing or resuming a session.
+- Save successfully rediscovered IP addresses and ports in the driver's settings so subsequent connections reuse the recovered endpoint. Preserve the saved pairing file during endpoint recovery.
+- Commit complete credential records through a temporary file and preserve unknown data-contract fields when replacing an existing record.
+- Cancel pending session initialization during disposal, suppress superseded session feedback, and keep one bridge event subscription across reconnects. Discard pairing results when the configured Apple TV changes during the handshake.
+- Serialize concurrent bridge command and event writes, and report a closed bridge as disconnected.
+
 ## [1.4.4](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.4) - 2026-09-22
 
 - Update stable Crestron SDK and Microsoft compatibility dependencies; the video driver uses AppleTvControlLibrary 2.2.6.

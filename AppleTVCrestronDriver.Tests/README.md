@@ -8,9 +8,10 @@
 | Crestron.DeviceDrivers.DevKit | 29.0.10 | SDK used by both drivers and lifecycle fixtures |
 | Crestron.SimplSharp.SDK.Library | 2.22.15 | SIMPL# runtime references |
 | Microsoft.Bcl.Memory | 10.0.12 | Compatibility support |
-| CrestronHomeNUnit.TestAdapter | 1.12.1 | Separate opt-in processor workflow project |
+| AppleTVControlLibrary / Discovery | 2.2.7 | Published protocol and discovery dependencies |
+| CrestronHomeNUnit.TestAdapter | 3.0.0 | Separate opt-in processor workflow project |
 
-The main suite runs 108 offline tests on net472. The desktop lifecycle harness runs 11 extension lifecycle tests on .NET 10. The separate processor package runs the same 119 cases on Mono, including both drivers' logic. Pairing tests use simulated Apple TVs; no production pairing credentials are needed.
+The main suite contains 130 offline tests on net472. The desktop lifecycle harness contains 13 extension lifecycle tests on .NET 10. The separate processor package includes the same 143 cases for execution on Mono, covering both drivers' logic. Pairing tests use simulated Apple TVs and synthetic credentials.
 
 ```powershell
 dotnet test AppleTVCrestronDriver.Tests/AppleTVCrestronDriver.Tests.csproj -c Release -p:DeployAfterBuild=false -p:SkipDriverPackaging=true --filter "TestCategory!=Processor&TestCategory!=Live"

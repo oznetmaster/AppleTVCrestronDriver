@@ -1,6 +1,7 @@
 // Copyright © 2026 Neil Colvin.
 // Licensed under the MIT License with Commons Clause. See LICENSE file in the project root for full license information.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 
@@ -25,7 +26,30 @@ internal sealed class CrestronCredentialFileStore (string baseModel) : ICredenti
 
 	public Stream OpenRead (string entryId) => new CrestronStreamAdapter (File.OpenRead (Path.Combine (SharedStorage.GetCredentialDirectory (baseModel), entryId)));
 
-	public Stream CreateWrite (string entryId) => new CrestronStreamAdapter (File.Create (Path.Combine (SharedStorage.GetCredentialDirectory (baseModel), entryId)));
+	public void WriteAtomically (string entryId, byte[] contents) => WriteFileAtomically (Path.Combine (SharedStorage.GetCredentialDirectory (baseModel), entryId), contents);
+
+	internal static void WriteFileAtomically (string path, byte[] contents)
+		{
+		string temporary = path + "." + Guid.NewGuid ().ToString ("N") + ".tmp";
+		try
+			{
+			using (var stream = new System.IO.FileStream (temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+				{
+				stream.Write (contents, 0, contents.Length);
+				stream.Flush (true);
+				}
+
+			if (System.IO.File.Exists (path))
+				System.IO.File.Replace (temporary, path, null);
+			else
+				System.IO.File.Move (temporary, path);
+			}
+		finally
+			{
+			if (System.IO.File.Exists (temporary))
+				System.IO.File.Delete (temporary);
+			}
+		}
 
 	/// <summary>
 	/// Adapts a <see cref="Crestron.SimplSharp.CrestronIO.FileStream"/> to the BCL <see cref="Stream"/>

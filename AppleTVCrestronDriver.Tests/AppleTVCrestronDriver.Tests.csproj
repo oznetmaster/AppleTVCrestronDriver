@@ -40,8 +40,8 @@
 			 the driver assembly and the original library assemblies define the same types (e.g.
 			 CompanionDiscoveryResult, HapCredentials since AppleTVControlLibrary's package bundles
 			 AppleTv.Hap.dll too), and using them here becomes ambiguous (CS0433). -->
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.6" ExcludeAssets="compile" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.6" ExcludeAssets="compile" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.7" ExcludeAssets="compile" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.7" ExcludeAssets="compile" />
 	</ItemGroup>
 
 	<ItemGroup>

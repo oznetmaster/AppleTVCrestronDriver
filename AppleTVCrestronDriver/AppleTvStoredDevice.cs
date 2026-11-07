@@ -3,6 +3,7 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Json;
 
@@ -10,6 +11,7 @@ namespace AppleTV.CrestronDriver;
 
 internal sealed class AppleTvStoredDevice
 	{
+	private static readonly object _saveLock = new ();
 	// The Crestron video server driver's own manifest BaseModel (AppleTVCrestronDriver.json's
 	// GeneralInformation.BaseModel). The video server is the sole owner of Companion Link
 	// pairing/credentials and therefore the sole owner of each Apple TV's UniqueId - the value
@@ -94,13 +96,26 @@ internal sealed class AppleTvStoredDevice
 			}
 
 		string entryId = GetPathKey (device.UniqueId) + ".json";
-		using Stream stream = store.CreateWrite (entryId);
-		new DataContractJsonSerializer (typeof (StoredDeviceFile)).WriteObject (stream, StoredDeviceFile.FromStoredDevice (device));
+		lock (_saveLock)
+			{
+			StoredDeviceFile record = StoredDeviceFile.FromStoredDevice (device);
+			if (store.EnumerateEntries ().Contains (entryId, StringComparer.OrdinalIgnoreCase))
+				{
+				using Stream existing = store.OpenRead (entryId);
+				var previous = (StoredDeviceFile)new DataContractJsonSerializer (typeof (StoredDeviceFile)).ReadObject (existing);
+				record.ExtensionData = previous?.ExtensionData;
+				}
+
+			using var buffer = new MemoryStream ();
+			new DataContractJsonSerializer (typeof (StoredDeviceFile)).WriteObject (buffer, record);
+			store.WriteAtomically (entryId, buffer.ToArray ());
+			}
 		}
 
 	[DataContract]
-	private sealed class StoredDeviceFile
+	private sealed class StoredDeviceFile : IExtensibleDataObject
 		{
+		public ExtensionDataObject ExtensionData { get; set; }
 		[DataMember (Name = "Address")] public string Address { get; set; }
 		[DataMember (Name = "Port")] public int Port { get; set; }
 		[DataMember (Name = "Name")] public string Name { get; set; }

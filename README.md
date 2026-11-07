@@ -1,9 +1,8 @@
 # AppleTVCrestronDriver
 
-For shipped changes, see the [changelog](CHANGELOG.md). Test, CI and build history is recorded separately in [development and validation history](DEVELOPMENT-HISTORY.md).
+Version **1.4.5** updates the Video Server to AppleTVControlLibrary **2.2.7** and fixes pairing, connection and companion-state reliability. [Download both drivers](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.4.5), or get the [Video Server NuGet package](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTV/1.4.5) and [companion NuGet package](https://www.nuget.org/packages/CrestronHomeDriver.Apple.AppleTVExtension/1.4.5).
 
-
-See the [changelog](CHANGELOG.md) for release history and the [release notes](RELEASE-NOTES.md) for the current driver update. Driver releases are made for runtime fixes or dependency changes; adding tests alone does not require a driver release.
+See the [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md). Test, CI and build history is recorded separately in [development and validation history](DEVELOPMENT-HISTORY.md).
 
 A **Crestron Home** Video Server driver that controls an **Apple TV** over its **Companion Link** protocol, providing pairing, connection status, and remote-control (arrow keys, select, menu, home, play/pause, power) directly from the Crestron Home app.
 
@@ -54,6 +53,14 @@ Once paired, the driver reconnects automatically on subsequent processor reboots
 - **Configure Pro shows stale attribute descriptions.** The driver updates the Apple TV Name, Pair Now, and Pairing PIN descriptions live to reflect current pairing/connection status. The Crestron Home **Setup** app reflects these updates correctly and immediately. The **Configure Pro** app, however, can display an outdated or default description after reopening a device's configuration page, even though the driver already sent the correct, current description. This appears to be a Configure Pro caching/refresh issue rather than a driver defect; use the Setup app if you need to confirm the current pairing status text.
 
 ### Installation
+
+#### Updating an existing installation
+
+Update both the **Apple TV Companion** Video Server driver and the **Apple TV Companion Media** extension from the same release. The Video Server uses the V1 SDK and requires a full processor reboot to load an updated assembly. The Entity V2 extension supports an in-place driver update.
+
+Retain the existing devices and their configuration. The Video Server reuses its saved pairing after the reboot. IP addresses and Companion Link ports are cached endpoints. If the cache fails, the driver discovers the saved Apple TV identity through mDNS, connects using the existing pairing, and saves the working endpoint in its driver settings.
+
+Allow the Apple TV to finish sleeping before turning it back on. In live testing, an immediate off/on sequence left it asleep; allowing five seconds after confirmed sleep worked. That interval is an observed test result, not a minimum timing guarantee.
 
 The best way to download and install this driver on a Crestron Home system is to use the [Crestron Home Driver Feed Installer](https://github.com/oznetmaster/Crestron-Home-Driver-Feed-Installer) repository and application.
 
@@ -111,7 +118,7 @@ Typical release flow:
 
 ## Testing
 
-`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 105 tests covering the driver logic that
+`AppleTVCrestronDriver.Tests` is a NUnit unit/integration test project with 130 tests covering the driver logic that
 does not require a live Crestron control system or a physical Apple TV. Driver orchestration logic
 (pairing, stored-device persistence, connection/reconnect handling, and related state) has been
 extracted behind small internal interfaces so it can be exercised directly by this suite. Coverage
@@ -144,7 +151,7 @@ merge the driver dependencies but skip production driver version bumps, packagin
 The solution also includes [AppleTVCrestronDriver.ProcessorTests](AppleTVCrestronDriver.ProcessorTests/README.md).
 Build that project in **Debug** in Visual Studio to create and deploy the standalone
 **AppleTVCrestronDriver Tests** package, using private local deployment settings. Find it in
-the **Utility** category in Crestron Home Configure. Run its 105 unit tests and 11 processor lifecycle tests from its tile or discover
+the **Utility** category in Crestron Home Configure. Run its 130 unit tests and 13 processor lifecycle tests from its tile or discover
 the package in the Windows NUnit runner. This suite uses simulated Apple TV services and loopback
 connections; it needs no Apple TV pairing credentials or live-test settings.
 
@@ -167,7 +174,7 @@ the non-built `AppleTV.Companion`/`AppleTV.Companion.Discovery` source projects.
 ## Repository Notes
 
 - XML documentation generation is enabled in the project build
-- The release workflow builds the package on `windows-latest`
+- The release workflow builds on `windows-latest`, or wraps reviewed SHA-256-pinned packages without rebuilding them. NuGet publishing uses GitHub OIDC Trusted Publishing
 - The repository includes the driver package/build scripts needed for packaging and deployment
 - The [Extension driver](AppleTVCrestronExtensionDriver/README.md) project links several source files directly from this project (shared credential-lookup and bridge client code) rather than using a `ProjectReference`, so it cannot be built or extracted into a separate repository independently of this one
 
@@ -193,7 +200,7 @@ Cover saved pairing, shared credential restoration, discovery identity persisten
 
 Real extension entities publish bridge events, maintain connection and tile state, clear keyboard text when focus is lost, reject missing device names before storage access, and clear device-specific UI state when configuration is removed.
 
-The current package contains **105 offline tests** and **11 SDK entity/lifecycle tests**. The processor package remains **net472 only**, appears under **Utility** in Configure, and can run independently through its own tile or the Windows NUnit runner. These fixtures use synthetic data and do not operate installed devices or authenticate with real accounts.
+The current package contains **130 offline tests** and **13 SDK entity/lifecycle tests**. The processor package remains **net472 only**, appears under **Utility** in Configure, and can run independently through its own tile or the Windows NUnit runner. These fixtures use synthetic data and do not operate installed devices or authenticate with real accounts.
 
 `AppleTVCrestronDriver.Lifecycle.Tests` runs the entity checks against the real desktop SDK on .NET 10. It compiles the relevant driver sources and shares fixture sources with the net472 processor tests. Building this project does not deploy a driver. A locally supplied `Newtonsoft.Json.Compact.dll` is needed by the SDK's manifest reader; it is supplied by the processor at runtime and must not be added to source control or bundled with the processor test package.
 

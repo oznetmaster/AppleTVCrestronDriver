@@ -11,6 +11,8 @@ using System.Threading.Tasks;
 using AppleTV.CrestronDriver;
 using AppleTvControlLibrary.Auth;
 using AppleTvControlLibrary.Discovery.Companion;
+using AppleTvControlLibrary.FakeDevice;
+using AppleTvControlLibrary.Tlv8;
 using NUnit.Framework;
 
 namespace AppleTVCrestronDriver.Tests;
@@ -39,12 +41,47 @@ public sealed class AppleTvConfigurationTests
 	[TearDown]
 	public void TearDown ()
 		{
+		AppleTvPairingSessionState.Instance.Clear ();
 		_cancellation.Dispose ();
 		AppleTvPairingSessionState.Instance.ConfigureCancellation = null;
 		AppleTvPairingSessionState.Instance.CurrentProtocol = null;
 		}
 	private static AppleTvStoredDevice Paired () => new () { Name = "Lounge", UniqueId = "test-id", Address = "192.0.2.1", Port = 4321, Ltpk = new byte[] { 1 }, Ltsk = new byte[] { 1 }, AtvId = new byte[] { 1 }, ClientId = new byte[] { 1 } };
 	private static CompanionDiscoveryResult Found () => new ("Lounge", IPAddress.Parse ("192.0.2.2"), 4322, "test-id", CompanionPairingRequirement.Mandatory, new Dictionary<string, string> ());
+	[Test]
+	public async Task NameChangedWhilePairingStartsDisposesTheSupersededHandshake ()
+		{
+		using var host = new PairingResponseTcpHost ((_, bytes) =>
+			{
+			_protocol.AppleTvName = "Other Apple TV";
+			return bytes;
+			});
+		_protocol.AppleTvName = "Lounge";
+		_host.Device = new AppleTvStoredDevice { Name = "Lounge", UniqueId = "synthetic", Address = "127.0.0.1", Port = host.Port };
+		await _logic.BeginPairingAsync ();
+		Assert.That (AppleTvPairingSessionState.Instance.Pairing, Is.Null);
+		Assert.That (_store.EnumerateEntries (), Is.Empty);
+		}
+
+	[Test]
+	public async Task NameChangedWhilePairingCompletesDoesNotPersistOrConnectTheOldTarget ()
+		{
+		using var host = new PairingResponseTcpHost ((_, bytes) =>
+			{
+			if (Tlv8.ReadTlv (bytes)[(int)TlvValue.SeqNo][0] == 6)
+				_protocol.AppleTvName = "Other Apple TV";
+			return bytes;
+			});
+		_protocol.AppleTvName = "Lounge";
+		_host.Device = new AppleTvStoredDevice { Name = "Lounge", UniqueId = "synthetic", Address = "127.0.0.1", Port = host.Port };
+		await _logic.BeginPairingAsync ();
+		Assert.That (AppleTvPairingSessionState.Instance.Pairing, Is.Not.Null);
+		await _logic.CompletePairingAsync (_protocol, FakeCompanionDevice.PIN_CODE.ToString (), NoConnect);
+		Assert.That (AppleTvPairingSessionState.Instance.Pairing, Is.Null);
+		Assert.That (_host.Device.IsPaired, Is.False);
+		Assert.That (_store.EnumerateEntries (), Is.Empty);
+		}
+
 	[Test]
 	public async Task SavedPairingConnectsWithoutDiscovery ()
 		{
@@ -61,6 +98,61 @@ public sealed class AppleTvConfigurationTests
 		Assert.That (connects, Is.EqualTo (1));
 		Assert.That (_scanner.Calls, Is.Zero);
 		}
+	[Test]
+	public async Task RecoveredEndpointIsSavedForNextConnectionWithoutRewritingPairing ()
+		{
+		AppleTvStoredDevice original = Paired ();
+		AppleTvStoredDevice.Save (original, _store);
+		byte[] pairingBefore;
+		using (var stream = _store.OpenRead ("TEST-ID.json"))
+		using (var bytes = new System.IO.MemoryStream ())
+			{
+			stream.CopyTo (bytes);
+			pairingBefore = bytes.ToArray ();
+			}
+		_host.Device = original;
+		_scanner.Result = Found ();
+		int connects = 0;
+		await _logic.ConfigureAppleTvAsync (_protocol, "Lounge", (p, device, address, port) =>
+			{
+			connects++;
+			if (address == "192.0.2.1") throw new System.Net.Sockets.SocketException ();
+			return Task.CompletedTask;
+			});
+		Assert.That (connects, Is.EqualTo (2));
+		Assert.That (_host.Device.Address, Is.EqualTo ("192.0.2.2"));
+		Assert.That (_host.Device.Port, Is.EqualTo (4322));
+		using (var stream = _store.OpenRead ("TEST-ID.json"))
+		using (var bytes = new System.IO.MemoryStream ())
+			{
+			stream.CopyTo (bytes);
+			Assert.That (bytes.ToArray (), Is.EqualTo (pairingBefore));
+			}
+		int scans = _scanner.Calls;
+		await _logic.ConfigureAppleTvAsync (_protocol, "Lounge", (p, device, address, port) =>
+			{
+			Assert.That (address, Is.EqualTo ("192.0.2.2"));
+			Assert.That (port, Is.EqualTo (4322));
+			return Task.CompletedTask;
+			});
+		Assert.That (_scanner.Calls, Is.EqualTo (scans));
+		}
+
+	[Test]
+	public async Task SupersededEndpointRecoveryDoesNotSaveTheNewEndpoint ()
+		{
+		_host.Device = Paired ();
+		_scanner.Result = Found ();
+		await _logic.ConfigureAppleTvAsync (_protocol, "Lounge", (p, device, address, port) =>
+			{
+			if (address == "192.0.2.1") throw new System.Net.Sockets.SocketException ();
+			_cancellation.Cancel ();
+			return Task.CompletedTask;
+			});
+		Assert.That (_host.Device.Address, Is.EqualTo ("192.0.2.1"));
+		Assert.That (_host.Device.Port, Is.EqualTo (4321));
+		}
+
 	[Test]
 	public async Task StoredUnpairedIdentityIsRestoredWithoutRescanningOrConnecting ()
 		{

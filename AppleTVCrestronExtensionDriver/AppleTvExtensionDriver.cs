@@ -47,6 +47,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	private readonly string _logControllerId;
 	private readonly UiDefinitionProperty _uiDefinition;
 	private readonly object _stateLock = new ();
+	private bool _disposed;
 	private readonly List<(string BundleId, string Name)> _apps = [];
 
 	private CancellationTokenSource _connectCancellationTokenSource;
@@ -119,6 +120,12 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	/// <inheritdoc/>
 	public override void Dispose ()
 		{
+		lock (_stateLock)
+			{
+			if (_disposed)
+				return;
+			_disposed = true;
+			}
 		_appRefreshTimer.Dispose ();
 		StopConnecting ();
 		DisposeBridgeClient ();
@@ -182,10 +189,21 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	private void StartConnecting (string uniqueId)
 		{
 		StopConnecting ();
+		DisposeBridgeClient ();
 		_lastUniqueId = uniqueId;
 		var cancellationTokenSource = new CancellationTokenSource ();
-		_connectCancellationTokenSource = cancellationTokenSource;
-		_ = Task.Run (() => ConnectAsync (uniqueId, cancellationTokenSource.Token));
+		CancellationToken token = cancellationTokenSource.Token;
+		lock (_stateLock)
+			{
+			if (_disposed)
+				{
+				cancellationTokenSource.Dispose ();
+				return;
+				}
+			_connectCancellationTokenSource = cancellationTokenSource;
+			SetUnavailableState ("Connecting...");
+			}
+		_ = Task.Run (() => ConnectAsync (uniqueId, token));
 		}
 
 	private void StopConnecting ()
@@ -227,8 +245,6 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 			return;
 			}
 
-		client.LineReceived -= HandleBridgeLine;
-		client.Disconnected -= HandleBridgeDisconnected;
 		client.Dispose ();
 		}
 
@@ -250,7 +266,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 					return;
 					}
 
-				var client = new AppleTvBridgeClient (LogInformation);
+				var client = new AppleTvBridgeClient (message => LogInformation (message));
 				try
 					{
 					await client.ConnectAsync (port, cancellationToken).ConfigureAwait (false);
@@ -260,19 +276,22 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 						return;
 						}
 
-					client.LineReceived += HandleBridgeLine;
-					client.Disconnected += HandleBridgeDisconnected;
 					lock (_stateLock)
 						{
+						if (_disposed || cancellationToken.IsCancellationRequested)
+							{
+							client.Dispose ();
+							return;
+							}
 						_bridgeClient = client;
+						client.LineReceived += line => HandleCurrentBridgeLine (client, line);
+						client.Disconnected += () => HandleCurrentBridgeDisconnected (client);
+						SetUnavailableState ("Waiting for Apple TV status");
 						}
 
 					LogInformation ($"Connected to Apple TV bridge on 127.0.0.1:{port}.");
-					OnlineIndicatorIsOnline = true;
-					ReadyIndicatorIsReady = true;
-					SetStatusSummary ("Connected");
+					WatchForRefreshStatusReply (client, cancellationToken);
 					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_REFRESH_STATUS}").ConfigureAwait (false);
-					WatchForRefreshStatusReply ();
 					await client.SendCommandAsync ($"CMD:{AppleTvBridgeProtocol.COMMAND_REFRESH_APPS}").ConfigureAwait (false);
 					return;
 					}
@@ -307,17 +326,42 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	// failed or the command was never received). Logs an explicit warning if no such line has
 	// arrived a few seconds after this connect's request was sent, so PowerStatusLabel staying
 	// "Unknown" can be attributed to a missing reply rather than a silent success.
-	private void WatchForRefreshStatusReply ()
+	private void WatchForRefreshStatusReply (AppleTvBridgeClient client, CancellationToken cancellationToken)
 		{
 		int requestedVersion = Volatile.Read (ref _refreshStatusRequestVersion);
 		_ = Task.Run (async () =>
 			{
-				await Task.Delay (TimeSpan.FromSeconds (5)).ConfigureAwait (false);
-				if (Volatile.Read (ref _refreshStatusRequestVersion) == requestedVersion)
+				try
+					{
+					await Task.Delay (TimeSpan.FromSeconds (5), cancellationToken).ConfigureAwait (false);
+					}
+				catch (OperationCanceledException)
+					{
+					return;
+					}
+				if (!_disposed && ReferenceEquals (client, _bridgeClient) && Volatile.Read (ref _refreshStatusRequestVersion) == requestedVersion)
 					{
 					LogWarning ("No EVT:SYSSTATUS: reply was received within 5 seconds of sending CMD:REFRESHSTATUS; PowerStatusLabel will remain stale.");
 					}
 			});
+		}
+
+	private void HandleCurrentBridgeLine (AppleTvBridgeClient client, string line)
+		{
+		lock (_stateLock)
+			{
+			if (!_disposed && ReferenceEquals (client, _bridgeClient))
+				HandleBridgeLine (line);
+			}
+		}
+
+	private void HandleCurrentBridgeDisconnected (AppleTvBridgeClient client)
+		{
+		lock (_stateLock)
+			{
+			if (!_disposed && ReferenceEquals (client, _bridgeClient))
+				HandleBridgeDisconnected ();
+			}
 		}
 
 	private void HandleBridgeDisconnected ()
@@ -342,9 +386,8 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 	// same underlying Companion Link event.
 	private void HandleBridgeLine (string line)
 		{
-		LogInformation ($"Bridge line received: '{line}'");
-
 		AppleTvExtensionDriverLogic.BridgeLineResult result = AppleTvExtensionDriverLogic.TryParseBridgeLine (line);
+		LogInformation ($"Bridge event received: {result.Kind}.");
 		switch (result.Kind)
 			{
 			case AppleTvExtensionDriverLogic.BridgeLineKind.Connected:
@@ -354,9 +397,7 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 				return;
 
 			case AppleTvExtensionDriverLogic.BridgeLineKind.Disconnected:
-				OnlineIndicatorIsOnline = false;
-				ReadyIndicatorIsReady = false;
-				SetStatusSummary ("Apple TV disconnected");
+				SetUnavailableState ("Apple TV disconnected");
 				return;
 
 			case AppleTvExtensionDriverLogic.BridgeLineKind.Power:
@@ -504,6 +545,10 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 		{
 		OnlineIndicatorIsOnline = false;
 		ReadyIndicatorIsReady = false;
+		KeyboardFocused = false;
+		ApplyKeyboardTextFromDevice (string.Empty);
+		VolumeControlSupported = false;
+		PowerStatusLabel = "Unknown";
 		SetStatusSummary (statusSummary);
 		}
 
@@ -538,5 +583,6 @@ public sealed partial class AppleTvExtensionDriver : ReflectedAttributeDriverEnt
 
 	private void LogError (string message) => _logger?.Log (_logControllerId, LogEntryLevel.Error, message);
 
+	[Conditional ("DEBUG")]
 	private void LogInformation (string message) => _logger?.Log (_logControllerId, LogEntryLevel.Info, message);
 	}
