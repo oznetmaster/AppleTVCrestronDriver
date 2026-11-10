@@ -20,17 +20,26 @@ internal interface IAppleTvProtocol
 	/// <summary>
 	/// The currently configured Apple TV name.
 	/// </summary>
-	string AppleTvName { get; }
+	string AppleTvName
+		{
+		get;
+		}
 
 	/// <summary>
 	/// The pairing PIN most recently entered by the user, if any.
 	/// </summary>
-	string PairingPin { get; }
+	string PairingPin
+		{
+		get;
+		}
 
 	/// <summary>
 	/// Whether the Companion Link session is currently connected.
 	/// </summary>
-	bool IsConnected { get; }
+	bool IsConnected
+		{
+		get;
+		}
 
 	/// <summary>
 	/// Connects the Companion Link session to the given endpoint using the given credentials.

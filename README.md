@@ -1,6 +1,12 @@
 # AppleTVCrestronDriver
 
-Version **1.5.0** adds programmable app-launch commands to the companion extension, with confirmed wake handling and a two-step **Route AppleTV → Launch app** Quick Action setup. The Video Server retains its existing pairing, connection and routing behavior. See the [extension setup guide](AppleTVCrestronExtensionDriver/README.md#quick-actions).
+## Current GitHub/NuGet release: 1.5.1
+
+[Download 1.5.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.1) or use the matching NuGet driver distribution. This patch includes the audited dependency and lifecycle corrections; see [release notes](RELEASE-NOTES.md). Existing configuration and pairing formats are retained. Crestron catalog/submission versions below retain their separate attribution.
+
+Both Apple TV drivers use 1.5.1. Updating the existing V1 Video Server requires a full processor reboot.
+
+Version 1.5.0 introduced programmable app-launch commands to the companion extension, with confirmed wake handling and a two-step **Route AppleTV → Launch app** Quick Action setup. The Video Server retains its existing pairing, connection and routing behavior. See the [extension setup guide](AppleTVCrestronExtensionDriver/README.md#quick-actions).
 
 See the [changelog](CHANGELOG.md) and [release notes](RELEASE-NOTES.md). Test, CI and build history is recorded separately in [development and validation history](DEVELOPMENT-HISTORY.md).
 

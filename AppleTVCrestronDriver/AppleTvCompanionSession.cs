@@ -14,7 +14,7 @@ using AppleTvControlLibrary.Tlv8;
 
 namespace AppleTV.CrestronDriver;
 
-internal sealed class AppleTvCompanionSession : IDisposable
+internal sealed class AppleTvCompanionSession : IDisposable, IAsyncDisposable
 	{
 	private readonly TcpClient _client;
 	private readonly CompanionConnection _connection;
@@ -22,6 +22,8 @@ internal sealed class AppleTvCompanionSession : IDisposable
 	private readonly Thread _readThread;
 	private readonly Action<string> _log;
 	private volatile bool _disposed;
+	private readonly object _disposeGate = new ();
+	private readonly TaskCompletionSource<bool> _shutdown = new (TaskCreationOptions.RunContinuationsAsynchronously);
 	private bool _isConnected;
 
 	private AppleTvCompanionSession (TcpClient client, CompanionConnection connection, CompanionProtocol protocol, Action<string> log)
@@ -125,9 +127,9 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			if (session._connection.IsFaulted)
 				throw new InvalidOperationException ("The Apple TV connection closed during initialization.");
 			log?.Invoke ("Companion API session connected.");
-			#if DEBUG
+#if DEBUG
 			session.Api.MediaControlCapabilitiesChanged += session.HandleMediaControlCapabilitiesChanged;
-			#endif
+#endif
 			session.SetConnectionState (true);
 			return session;
 			}
@@ -234,24 +236,43 @@ internal sealed class AppleTvCompanionSession : IDisposable
 
 	public void Dispose ()
 		{
-		if (_disposed)
+		lock (_disposeGate)
 			{
-			return;
-			}
-
-		_disposed = true;
-		if (Api is not null)
-			{
-			Api.SystemStatusChanged -= HandleSystemStatusChanged;
-			Api.ConnectionClosed -= HandleConnectionClosed;
-			#if DEBUG
+			if (_disposed)
+				return;
+			_disposed = true;
+			if (Api is not null)
+				{
+				Api.SystemStatusChanged -= HandleSystemStatusChanged;
+				Api.ConnectionClosed -= HandleConnectionClosed;
+#if DEBUG
 			Api.MediaControlCapabilitiesChanged -= HandleMediaControlCapabilitiesChanged;
-			#endif
-			}
+#endif
+				}
 
-		SetConnectionState (false);
-		_connection.Fault (new ObjectDisposedException (nameof (AppleTvCompanionSession)));
-		_client.Close ();
+			SetConnectionState (false);
+			_connection.Fault (new ObjectDisposedException (nameof (AppleTvCompanionSession)));
+			_client.Close ();
+			_ = CompleteProtocolShutdownAsync ();
+			}
+		}
+
+	public ValueTask DisposeAsync ()
+		{
+		Dispose ();
+		return new ValueTask (_shutdown.Task);
+		}
+
+	private async Task CompleteProtocolShutdownAsync ()
+		{
+		try
+			{
+			// Await a Task across the patched net472/Mono assembly boundary. The
+			// protocol still owns and completes its asynchronous disposal exactly once.
+			await _protocol.DisposeAsync ().AsTask ().ConfigureAwait (false);
+			_shutdown.TrySetResult (true);
+			}
+		catch (Exception exception) { _shutdown.TrySetException (exception); }
 		}
 
 	// CompanionApi.ConnectionClosed (library v1.1.4+) is the authoritative
@@ -282,9 +303,9 @@ internal sealed class AppleTvCompanionSession : IDisposable
 			}
 
 		_isConnected = connected;
-		#if DEBUG
+#if DEBUG
 		_log?.Invoke ($"Companion connection state changed to {(connected ? "connected" : "disconnected")}.");
-		#endif
+#endif
 		ConnectionStateChanged?.Invoke (connected);
 		}
 
@@ -298,14 +319,14 @@ internal sealed class AppleTvCompanionSession : IDisposable
 		PowerStateChanged?.Invoke (isOn);
 		}
 
-	#if DEBUG
+#if DEBUG
 	// Diagnostic-only for now: the driver's manifest does not expose a volume
 	// control attribute, so there is nothing to update in Crestron Home yet if
 	// IsVolumeControlSupported flips. Logged so this is visible if volume
 	// control support is added later.
 	private void HandleMediaControlCapabilitiesChanged (object sender, EventArgs e) =>
 		_log?.Invoke ($"Apple TV media control capabilities changed (volume control supported: {Api.IsVolumeControlSupported}).");
-	#endif
+#endif
 
 	// Convert.ToString(byte[]) does NOT hex-encode; it calls object.ToString()
 	// on the array, always yielding the literal string "System.Byte[]" no

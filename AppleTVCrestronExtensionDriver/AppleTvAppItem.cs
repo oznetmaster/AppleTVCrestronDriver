@@ -24,8 +24,14 @@ public sealed class AppleTvAppItem : ExtensionObject
 		}
 
 	[EntityProperty (Id = "bundleId")]
-	public string BundleId { get; }
+	public string BundleId
+		{
+		get;
+		}
 
 	[EntityProperty (Id = "name")]
-	public string Name { get; }
+	public string Name
+		{
+		get;
+		}
 	}

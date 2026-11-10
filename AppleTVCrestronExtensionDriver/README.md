@@ -1,6 +1,8 @@
 # AppleTVCrestronExtensionDriver
 
-Version **1.5.0** adds one programmable **Launch <app name>** command per installed app, with wake confirmation built into app launching. It is versioned with the paired Video Server driver.
+Paired release **1.5.1** uses AppleTVControlLibrary 2.2.8 and the corrected Video Server command/session lifetime. Existing Quick Actions and pairing storage are unchanged. See [release notes](../RELEASE-NOTES.md).
+
+Version **1.5.1** retains one programmable **Launch <app name>** command per installed app, with wake confirmation built into app launching. It is versioned with the paired Video Server driver.
 
 A **Crestron Home Entity V2 Extension driver** that adds Apple TV app selection and remote-control UI (arrow keys, D-pad, Home/Menu, play/pause/rewind/fast-forward, previous/next track, volume, and on-screen keyboard text entry) to a room, driven over a loopback bridge to the [AppleTVCrestronDriver](https://github.com/oznetmaster/AppleTVCrestronDriver) Video Server driver.
 

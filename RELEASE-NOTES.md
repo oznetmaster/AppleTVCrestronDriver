@@ -1,12 +1,19 @@
-# Apple TV drivers 1.5.0
+# AppleTVCrestronDriver 1.5.1
 
-The companion media extension now exposes a separate **Launch <app name>** command for each installed Apple TV app. Configure a Quick Action as **Route AppleTV → Launch app**. The extension wakes Apple TV when needed and waits for confirmed awake state before submitting the launch request. An already-on device launches without an extra Home command or mandatory startup wait.
+This patch corrects the dependency and lifecycle issues described below.
 
-App command identities remain stable across list reordering and app renaming. Pending launches stop when the connection/configuration changes or the app becomes unavailable. Requests are serialized, and selection feedback is updated after an accepted launch submission; it is not foreground-app or movie-title confirmation.
+- Use AppleTVControlLibrary and Discovery 2.2.8.
+- Keep queued Video Server commands tied to the session that accepted them. Drop retired commands and drain held-key release and session shutdown before replacement.
+- Preserve the existing V1/V2 bridge, pairing files, source routing and Quick Action configuration.
 
-See the [Quick Action setup instructions](AppleTVCrestronExtensionDriver/README.md#quick-actions) for Crestron Home Setup and Configure Pro. Keep both existing devices: the V1 Video Server still owns pairing, the session and native routing/TSR-310 support. Neither tile visibility nor source selection is changed. No synthetic metadata or artwork probe is included.
+## Installation
 
-Both packages use version 1.5.0 (driver version 1.5.000.0000). V1 runtime behavior is unchanged. Retain the existing paired devices and configuration; updating V1 requires a full processor reboot, while the V2 extension supports an in-place update.
+Use the driver package from [GitHub](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.1) or the matching NuGet distribution. Import the package, then update the existing driver in Home Setup or Configure Pro. Importing alone does not update the running instance. Existing pairing and configuration formats are retained; removal and re-add is not a routine update step.
 
+Both the V1 Video Server and V2 companion are released together as 1.5.1. Updating an existing V1 driver requires a full processor reboot; the V2 companion does not require a reboot. Preserve the existing pairing files. Quick Actions keep the two-step Route AppleTV -> Launch app setup.
 
-Validation: 149 logic tests and 15 real-SDK lifecycle tests passed on the workstation; all 164 also passed in the packaged processor test host with no failures or skips. The temporary test instance and its package were removed, the workflow reservation was released and all three saved pairing files were unchanged. The two-step TV-off / BBC iPlayer live test passed on the experimental 1.4.005.0002 build; the prepared 1.5.0 production packages have not replaced the installed drivers.
+## Validation
+
+Passed 167 workstation Debug and 167 Release test executions, plus 167 native net472/Mono processor tests. Processor validation used fake transports and synthetic credentials; no new physical-device acceptance or endurance run is claimed. Existing processor configuration and all pairing files were preserved. See [development history](DEVELOPMENT-HISTORY.md) for provenance and limits.
+
+This GitHub/NuGet release does not replace any submitted Crestron package. Submission-specific PDFs and correspondence are excluded from public artifacts.

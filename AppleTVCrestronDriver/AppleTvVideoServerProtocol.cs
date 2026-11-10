@@ -1,4 +1,4 @@
-// Copyright � 2026 Neil Colvin.
+// Copyright (c) 2026 Neil Colvin.
 // Licensed under the MIT License with Commons Clause. See LICENSE file in the project root for full license information.
 
 using System;
@@ -44,8 +44,9 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		{ ArrowDirections.Left, false },
 		{ ArrowDirections.Right, false },
 		};
-	private readonly object _pressedArrowLock = new();
-	private readonly SemaphoreSlim _sendGate = new(1, 1);
+	private readonly object _pressedArrowLock = new ();
+	private readonly SemaphoreSlim _sendGate = new (1, 1);
+	internal Task Shutdown { get; private set; } = Task.CompletedTask;
 	private readonly AppleTvKeyboardBridge _keyboardBridge;
 
 	// Crestron Home re-applies the entire current configuration form (every
@@ -110,15 +111,17 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		{
 		int version = Interlocked.Increment (ref _connectionVersion);
 		AppleTvCompanionSession previous;
+		List<ArrowDirections> previousKeys;
 		lock (_sessionLock)
 			{
 			if (_disposed)
 				throw new ObjectDisposedException (nameof (AppleTvVideoServerProtocol));
 			previous = _session;
+			previousKeys = TakePressedArrowDirections ();
 			_session = null;
 			SetCompanionConnectionState (false);
 			}
-		previous?.Dispose ();
+		await RetireSessionAsync (previous, previousKeys).ConfigureAwait (false);
 		AppleTvCompanionSession session = await AppleTvCompanionSession.ConnectAsync (
 			address,
 			port,
@@ -146,8 +149,8 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		session.ConnectionClosed += exception => HandleSessionConnectionClosed (session, exception);
 		session.PowerStateChanged += isOn =>
 			{
-			if (ReferenceEquals (session, _session))
-				SetPowerState (isOn);
+				if (ReferenceEquals (session, _session))
+					SetPowerState (isOn);
 			};
 		if (session.Api is not null)
 			{
@@ -472,7 +475,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			return;
 			}
 
-		_ = SendAndLogAsync (() => _session.Api.LaunchAppAsync (bundleId));
+		_ = SendAndLogAsync (session => session.Api.LaunchAppAsync (bundleId));
 		}
 
 	// Fetches the current app list from the live Companion Link session and relays it to any
@@ -531,11 +534,12 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		// Make sure any held arrow keys are never left "stuck down" on the device
 		// if the driver is disposed/reloaded while a key is pressed.
 		AppleTvCompanionSession session;
+		List<ArrowDirections> pressed;
 		lock (_sessionLock)
 			{
 			if (_disposed)
 				return;
-			ReleaseAllPressedArrowKeys ();
+			pressed = TakePressedArrowDirections ();
 			_disposed = true;
 			_ = Interlocked.Increment (ref _connectionVersion);
 			session = _session;
@@ -543,9 +547,31 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			SetCompanionConnectionState (false);
 			}
 		_lifetimeCancellation.Cancel ();
-		session?.Dispose ();
+		Shutdown = RetireSessionAsync (session, pressed);
 		// Pending sends still release their gate as cancellation unwinds.
 		base.Dispose ();
+		}
+
+	private async Task RetireSessionAsync (AppleTvCompanionSession session, List<ArrowDirections> pressed)
+		{
+		if (session is null)
+			return;
+		await _sendGate.WaitAsync ().ConfigureAwait (false);
+		try
+			{
+			if (session.IsConnected && pressed != null)
+				foreach (ArrowDirections direction in pressed)
+					try
+						{
+						await session.SendHidUpAsync (MapArrowDirection (direction)).ConfigureAwait (false);
+						}
+					catch (Exception exception) { LogDiagnostic (exception.Message); }
+			}
+		finally
+			{
+			_sendGate.Release ();
+			await session.DisposeAsync ().AsTask ().ConfigureAwait (false);
+			}
 		}
 
 	protected override void ConnectionChangedEvent (bool connection)
@@ -608,7 +634,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 	// Ultamation reference driver's ReleaseArrowKey, which releases whatever
 	// direction(s) are actually flagged pressed rather than a single "last
 	// pressed" value. Safe to call even when nothing is pressed.
-	private void ReleaseAllPressedArrowKeys ()
+	private List<ArrowDirections> TakePressedArrowDirections ()
 		{
 		List<ArrowDirections> pressedDirections = null;
 		lock (_pressedArrowLock)
@@ -623,6 +649,12 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 				}
 			}
 
+		return pressedDirections;
+		}
+
+	private void ReleaseAllPressedArrowKeys ()
+		{
+		List<ArrowDirections> pressedDirections = TakePressedArrowDirections ();
 		if (pressedDirections is not null)
 			{
 			foreach (ArrowDirections direction in pressedDirections)
@@ -655,12 +687,12 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			Log ($"[AppleTV] {message}");
 			}
 
-		#if DEBUG
+#if DEBUG
 		// Also write straight to the processor console/error log in Debug
 		// builds, since it is not routed through Crestron Home and is not
 		// subject to EnableLogging, filtering, or delay/interleaving.
 		ErrorLog.Notice ($"[AppleTV] {message}");
-		#endif
+#endif
 		}
 
 	public override void Select () => SendHid (HidCommand.Select);
@@ -681,7 +713,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		// No in-flight gating here: the underlying session/API already sequences
 		// frames correctly, so each command is simply queued through _sendGate in
 		// arrival order.
-		_ = SendAndLogAsync (() => _session.SendHidAsync (command));
+		_ = SendAndLogAsync (session => session.SendHidAsync (command));
 		}
 
 	private void SendArrowDown (HidCommand command)
@@ -691,7 +723,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			return;
 			}
 
-		_ = SendAndLogAsync (() => _session.SendHidDownAsync (command));
+		_ = SendAndLogAsync (session => session.SendHidDownAsync (command));
 		}
 
 	private void SendArrowUp (HidCommand command)
@@ -704,14 +736,14 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 			return;
 			}
 
-		_ = SendAndLogAsync (() => _session.SendHidUpAsync (command));
+		_ = SendAndLogAsync (session => session.SendHidUpAsync (command));
 		}
 
 	private void SendHid (HidCommand command)
 		{
 		if (_session is not null)
 			{
-			_ = SendAndLogAsync (() => _session.SendHidAsync (command));
+			_ = SendAndLogAsync (session => session.SendHidAsync (command));
 			}
 		}
 
@@ -719,7 +751,7 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		{
 		if (_session is not null)
 			{
-			_ = SendAndLogAsync (() => _session.SendMediaCommandAsync (command));
+			_ = SendAndLogAsync (session => session.SendMediaCommandAsync (command));
 			}
 		}
 
@@ -731,21 +763,37 @@ internal sealed class AppleTvVideoServerProtocol : AVideoServerProtocol, IAppleT
 		{
 		if (_session is not null)
 			{
-			_ = SendAndLogAsync (() => isOn ? _session.SendWakeAsync () : _session.SendSleepAsync ());
+			_ = SendAndLogAsync (session => isOn ? session.SendWakeAsync () : session.SendSleepAsync ());
 			}
 		}
 
-	private async Task SendAndLogAsync (Func<Task> operation)
+	internal async Task SendAndLogAsync (Func<AppleTvCompanionSession, Task> operation)
 		{
+		AppleTvCompanionSession session;
+		int version;
+		lock (_sessionLock)
+			{
+			if (_disposed || _session is null)
+				return;
+			session = _session;
+			version = _connectionVersion;
+			}
 		try
 			{
 			// Serialize all outbound commands so overlapping calls (e.g. a held arrow
 			// key firing faster than the round trip to the Apple TV) cannot interleave
 			// their down/up HID pairs on the wire.
-			await _sendGate.WaitAsync ().ConfigureAwait (false);
+			await _sendGate.WaitAsync (_lifetimeCancellation.Token).ConfigureAwait (false);
 			try
 				{
-				await operation ().ConfigureAwait (false);
+				Task pending;
+				lock (_sessionLock)
+					{
+					if (_disposed || version != _connectionVersion || !ReferenceEquals (session, _session))
+						return;
+					pending = operation (session);
+					}
+				await pending.ConfigureAwait (false);
 				}
 			finally
 				{

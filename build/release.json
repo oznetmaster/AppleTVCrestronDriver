@@ -1,0 +1,29 @@
+{
+  "schema": 1,
+  "name": "AppleTVCrestronDriver",
+  "versionFile": "build/ReleaseVersion.props",
+  "versionXPath": "/Project/PropertyGroup/Version",
+  "notesFile": "release-notes/v{version}.md",
+  "packages": [
+    {
+      "frameworks": [],
+      "project": "AppleTVCrestronDriver/AppleTVCrestronDriver.csproj",
+      "id": "CrestronHomeDriver.Apple.AppleTV",
+      "symbols": false
+    },
+    {
+      "frameworks": [],
+      "project": "AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj",
+      "id": "CrestronHomeDriver.Apple.AppleTVExtension",
+      "symbols": false
+    }
+  ],
+  "applications": [],
+  "documents": [
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "rawLibraries": false,
+  "libraryArchive": false
+}

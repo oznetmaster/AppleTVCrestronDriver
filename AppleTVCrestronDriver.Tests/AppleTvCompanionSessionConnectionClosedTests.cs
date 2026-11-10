@@ -33,6 +33,22 @@ namespace AppleTVCrestronDriver.Tests;
 public sealed class AppleTvCompanionSessionConnectionClosedTests
 	{
 	[Test]
+	public async Task AsyncSessionDisposalIsSharedAndDrainsTheOwnedProtocol ()
+		{
+		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);
+		host.AcceptOne ();
+		AppleTvCompanionSession session = await ConnectSessionAsync (host).ConfigureAwait (false);
+		Task first = session.DisposeAsync ().AsTask ();
+		Task repeated = session.DisposeAsync ().AsTask ();
+		Assert.AreSame (first, repeated);
+		Task done = await Task.WhenAny (first, Task.Delay (TimeSpan.FromSeconds (5))).ConfigureAwait (false);
+		Assert.AreSame (first, done);
+		await first;
+		Assert.IsFalse (session.IsConnected);
+		session.Dispose ();
+		}
+
+	[Test]
 	public async Task ConnectionClosed_WhenHostClosesSocket_FiresWithNullException ()
 		{
 		using FakeCompanionTcpHost host = new (pin: FakeCompanionDevice.PIN_CODE);

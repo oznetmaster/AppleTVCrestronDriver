@@ -32,7 +32,9 @@ public sealed class ExtensionLifecycleTests
 			Assert.Ignore ("Requires the SDK desktop harness or the processor runtime.");
 #endif
 		_logger = new DriverLogger ("extension-lifecycle-test");
-		string root = TestContext.Parameters.Get ("TestDataDirectory", TestContext.CurrentContext.TestDirectory);
+		// Bundled definitions are beside the test assembly. TestDataDirectory is
+		// reserved for separately transferred private inputs on the processor.
+		string root = TestContext.CurrentContext.TestDirectory;
 		string directory = Path.Combine (root, "ExtensionTestData");
 		var resources = new DriverImplementationResources
 			{
@@ -148,28 +150,28 @@ public sealed class ExtensionLifecycleTests
 		Assert.That (State<string> ("powerStatusLabel"), Is.EqualTo ("Unknown"));
 		Assert.That (State<bool> ("onlineIndicator:isOnline"), Is.False);
 		}
-	    [Test]
-    public void ConfirmedAppList_RegistersStableProgrammableCommands ()
-        {
-        Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> { ("test.app", "Test App") });
-        var field = typeof (AppleTvExtensionDriver).GetField ("_registeredAppCommands", BindingFlags.Instance | BindingFlags.NonPublic);
-        var registered = (HashSet<string>) field.GetValue (_driver);
-        Assert.That (registered.Count, Is.EqualTo (1));
-        string identity = System.Linq.Enumerable.Single (registered);
-        Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> { ("test.app", "Renamed App") });
-        Assert.That (registered, Is.EquivalentTo (new[] { identity }));
-        Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> ());
-        Assert.That (registered, Is.EquivalentTo (new[] { identity }));
-        Assert.That (_driver.AppList, Is.Empty);
-        }
+	[Test]
+	public void ConfirmedAppList_RegistersStableProgrammableCommands ()
+		{
+		Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> { ("test.app", "Test App") });
+		var field = typeof (AppleTvExtensionDriver).GetField ("_registeredAppCommands", BindingFlags.Instance | BindingFlags.NonPublic);
+		var registered = (HashSet<string>)field.GetValue (_driver);
+		Assert.That (registered.Count, Is.EqualTo (1));
+		string identity = System.Linq.Enumerable.Single (registered);
+		Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> { ("test.app", "Renamed App") });
+		Assert.That (registered, Is.EquivalentTo (new[] { identity }));
+		Call ("ApplyConfirmedAppList", new List<(string BundleId, string Name)> ());
+		Assert.That (registered, Is.EquivalentTo (new[] { identity }));
+		Assert.That (_driver.AppList, Is.Empty);
+		}
 
-    [Test]
-    public void UnavailableState_InvalidatesPendingAppLaunchGeneration ()
-        {
-        var field = typeof (AppleTvExtensionDriver).GetField ("_appLaunchGeneration", BindingFlags.Instance | BindingFlags.NonPublic);
-        int before = (int) field.GetValue (_driver);
-        Call ("SetUnavailableState", "test disconnect");
-        Assert.That ((int) field.GetValue (_driver), Is.Not.EqualTo (before));
-        Assert.That (State<bool> ("onlineIndicator:isOnline"), Is.False);
-        }
-}
+	[Test]
+	public void UnavailableState_InvalidatesPendingAppLaunchGeneration ()
+		{
+		var field = typeof (AppleTvExtensionDriver).GetField ("_appLaunchGeneration", BindingFlags.Instance | BindingFlags.NonPublic);
+		int before = (int)field.GetValue (_driver);
+		Call ("SetUnavailableState", "test disconnect");
+		Assert.That ((int)field.GetValue (_driver), Is.Not.EqualTo (before));
+		Assert.That (State<bool> ("onlineIndicator:isOnline"), Is.False);
+		}
+	}

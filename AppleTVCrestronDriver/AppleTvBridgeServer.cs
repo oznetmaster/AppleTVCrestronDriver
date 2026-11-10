@@ -51,7 +51,10 @@ internal sealed class AppleTvBridgeServer : IDisposable
 		Port = port;
 		}
 
-	internal int Port { get; private set; }
+	internal int Port
+		{
+		get; private set;
+		}
 
 	/// <summary>
 	/// The number of currently connected bridge clients. Exposed only so tests can deterministically
@@ -365,4 +368,3 @@ internal sealed class AppleTvBridgeServerHandlerRegistration
 			}
 		}
 	}
-

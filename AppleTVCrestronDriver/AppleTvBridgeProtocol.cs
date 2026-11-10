@@ -30,7 +30,7 @@ namespace AppleTV.CrestronDriver;
 /// own token framing.
 /// </remarks>
 internal static class AppleTvBridgeProtocol
-{
+	{
 	private const char RECORD_SEPARATOR = '\u001E';
 	private const char UNIT_SEPARATOR = '\u001F';
 
@@ -151,4 +151,4 @@ internal static class AppleTvBridgeProtocol
 			return string.Empty;
 			}
 		}
-}
+	}

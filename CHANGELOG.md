@@ -11,6 +11,12 @@ under the same version tag.
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [development and validation history](DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.5.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.1) - 2026-11-10
+
+- Use AppleTVControlLibrary and Discovery 2.2.8.
+- Keep queued Video Server commands tied to the session that accepted them. Drop retired commands and drain held-key release and session shutdown before replacement.
+- Preserve the existing V1/V2 bridge, pairing files, source routing and Quick Action configuration.
+
 ## [1.5.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.0) - 2026-11-07
 
 - Release alongside extension 1.5.0, which adds named app-launch commands and wake-aware two-step Quick Actions. The Video Server runtime, pairing, bridge identity, native routing and tile visibility are unchanged.

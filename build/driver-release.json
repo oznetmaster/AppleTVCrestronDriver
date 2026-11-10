@@ -1,0 +1,24 @@
+{
+  "name": "AppleTVCrestronDriver",
+  "version": "1.5.1",
+  "packages": [
+    {
+      "id": "CrestronHomeDriver.Apple.AppleTV",
+      "project": "AppleTVCrestronDriver/AppleTVCrestronDriver.csproj",
+      "manifest": "AppleTVCrestronDriver/AppleTVCrestronDriver.json",
+      "payload": "AppleTVCrestronCloudDriver.pkg",
+      "displayName": "AppleTVCrestronDriver",
+      "vendor": "Apple",
+      "category": "Video Server"
+    },
+    {
+      "id": "CrestronHomeDriver.Apple.AppleTVExtension",
+      "project": "AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.csproj",
+      "manifest": "AppleTVCrestronExtensionDriver/AppleTVCrestronExtensionDriver.json",
+      "payload": "AppleTVCrestronExtensionDriver.pkg",
+      "displayName": "Apple TV Companion Extension",
+      "vendor": "Apple",
+      "category": "Video Server"
+    }
+  ]
+}

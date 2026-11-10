@@ -3,6 +3,13 @@ name: Release Package
 on:
   workflow_dispatch:
     inputs:
+      standard_release:
+        description: Publish exact verified driver assets through the shared release actions
+        type: boolean
+        default: false
+      public_version:
+        description: Three-part public patch version for the shared release path
+        type: string
       prepared_manifest_sha256:
         description: SHA-256 of reviewed ReleasePackages.json on the draft tagged release; publish its tested packages without rebuilding
         required: false
@@ -46,7 +53,7 @@ concurrency:
 
 jobs:
   build-and-upload-package:
-    if: (github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 == '') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v') && !contains(github.event.release.body, '<!-- prepared-packages-published -->'))
+    if: ${{ inputs.standard_release != true && ((github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 == '') || (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'v') && !contains(github.event.release.body, '<!-- prepared-packages-published -->'))) }}
     runs-on: windows-latest
     env:
       MANIFESTUTIL_VERSION: 27.0.24
@@ -379,7 +386,7 @@ jobs:
             ${{ steps.extension_package.outputs.pkg_path }}
           fail_on_unmatched_files: true
   publish-prepared:
-    if: github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 != ''
+    if: ${{ inputs.standard_release != true && (github.event_name == 'workflow_dispatch' && inputs.prepared_manifest_sha256 != '') }}
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
@@ -438,3 +445,68 @@ jobs:
           if ($LASTEXITCODE -ne 0 -or !$release.isDraft -or !$release.body.Contains('<!-- prepared-packages-published -->')) { throw 'The prepared draft release marker is missing.' }
           gh release edit $env:GITHUB_REF_NAME --repo $env:GITHUB_REPOSITORY --draft=false --latest
           if ($LASTEXITCODE -ne 0) { throw 'GitHub release publication failed.' }
+
+  build:
+    if: inputs.standard_release == true
+    runs-on: windows-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      actions: read
+      checks: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+      - name: Install pinned merge tool
+        shell: pwsh
+        run: dotnet tool install --global dotnet-ilrepack --version 2.0.45
+      - uses: oznetmaster/BuildAutomation/.github/actions/release-prepare@dd6056146da4424c996c0c3a0f98651e16209098
+        with:
+          version: ${{ inputs.public_version }}
+      - name: Verify shared validation policy
+        uses: oznetmaster/CrestronHomeNUnit/.github/actions/release-validation@2ae8197c6685099c2133e7bb962d1f3568aae9c3
+        with:
+          required-checks: ${{ vars.RELEASE_REQUIRED_CHECKS }}
+          hosted-workflows: '["tests.yml","workflow-discovery.yml"]'
+          skip-desktop-checks: ${{ inputs.skip_desktop_checks }}
+          desktop-skip-reason: ${{ inputs.desktop_skip_reason }}
+          skip-hardware-checks: ${{ inputs.skip_hardware_checks }}
+          hardware-skip-reason: ${{ inputs.hardware_skip_reason }}
+          validation-commit: ${{ inputs.validation_commit }}
+      - name: Stage driver packages through Cake
+        uses: oznetmaster/BuildAutomation@dd6056146da4424c996c0c3a0f98651e16209098
+        env:
+          RELEASE_VERSION: ${{ inputs.public_version }}
+        with:
+          task: release-assets
+      - uses: oznetmaster/BuildAutomation/.github/actions/release-freeze@dd6056146da4424c996c0c3a0f98651e16209098
+        with:
+          version: ${{ inputs.public_version }}
+  standard-publish:
+    if: inputs.standard_release == true
+    needs: build
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - uses: oznetmaster/BuildAutomation/.github/actions/release-publish@dd6056146da4424c996c0c3a0f98651e16209098
+        with:
+          version: ${{ inputs.public_version }}

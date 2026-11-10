@@ -14,7 +14,10 @@ internal interface IAppleTvDriverHost
 	/// <summary>
 	/// The model identifier used to scope the credential directory on disk.
 	/// </summary>
-	string BaseModel { get; }
+	string BaseModel
+		{
+		get;
+		}
 
 	/// <summary>
 	/// Reads a previously persisted setting value, or <see langword="null"/> if none is stored.

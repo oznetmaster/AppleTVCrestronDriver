@@ -72,8 +72,8 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="AppleTVControlLibrary" Version="2.2.7" />
-		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.7" />
+		<PackageReference Include="AppleTVControlLibrary" Version="2.2.8" />
+		<PackageReference Include="AppleTVControlLibrary.Discovery" Version="2.2.8" />
 		<PackageReference Include="Crestron.DeviceDrivers.DevKit" Version="29.0.10" />
 		<!-- When UseAlternateSdkBuild=true (set via ProjectReference Properties metadata from a private,
 			 non-published test project), the real Crestron.SimplSharp.SDK.Library package is swapped for

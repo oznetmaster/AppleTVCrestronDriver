@@ -71,3 +71,7 @@ AppleTVCrestronDriver/AppleTVCrestronDriver.reserve.json
 # Shared Cake build downloads and invocation receipts
 /artifacts/build-components/
 /artifacts/build-automation/
+
+# Pinned ManifestUtil build reference and staged release outputs.
+/Newtonsoft.Json.Compact.dll
+/artifacts/

@@ -219,7 +219,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			// ConfigureAppleTvAsync still needs the concrete protocol type: it starts
 			// the bridge server (StartBridgeServer/BridgeCommandHandler), which is out
 			// of scope for IAppleTvProtocol until that seam is extracted too.
-			await ConfigureAppleTvAsync ((AppleTvVideoServerProtocol) protocol, appleTvName).ConfigureAwait (false);
+			await ConfigureAppleTvAsync ((AppleTvVideoServerProtocol)protocol, appleTvName).ConfigureAwait (false);
 			}
 		catch (Exception exception)
 			{
@@ -247,7 +247,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 
 			// CompletePairingAsync still needs the concrete protocol type: it calls
 			// ConnectCompanionAsync, which starts the bridge server.
-			await CompletePairingAsync ((AppleTvVideoServerProtocol) protocol, pairingPin).ConfigureAwait (false);
+			await CompletePairingAsync ((AppleTvVideoServerProtocol)protocol, pairingPin).ConfigureAwait (false);
 			}
 		catch (Exception exception)
 			{
@@ -311,7 +311,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		=> await _logic.ConfigureAppleTvAsync (
 			protocol,
 			appleTvName,
-			(p, device, address, port) => ConnectCompanionAsync ((AppleTvVideoServerProtocol) p, device, address, port)).ConfigureAwait (false);
+			(p, device, address, port) => ConnectCompanionAsync ((AppleTvVideoServerProtocol)p, device, address, port)).ConfigureAwait (false);
 
 	private async Task BeginPairingAsync () => await _logic.BeginPairingAsync ().ConfigureAwait (false);
 
@@ -319,7 +319,7 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 		=> await _logic.CompletePairingAsync (
 			protocol,
 			pairingPin,
-			(p, device, address, port) => ConnectCompanionAsync ((AppleTvVideoServerProtocol) p, device, address, port)).ConfigureAwait (false);
+			(p, device, address, port) => ConnectCompanionAsync ((AppleTvVideoServerProtocol)p, device, address, port)).ConfigureAwait (false);
 
 	private async Task ConnectCompanionAsync (AppleTvVideoServerProtocol protocol, AppleTvStoredDevice device, string address, int port)
 		{
@@ -443,11 +443,11 @@ public sealed class AppleTvVideoServer : ABasicVideoServer, ICloudConnected, ISe
 			Log ($"[AppleTV] {message}");
 			}
 
-		#if DEBUG
+#if DEBUG
 		// Also write straight to the processor console/error log in Debug
 		// builds, since it is not routed through Crestron Home and is not
 		// subject to EnableLogging, filtering, or delay/interleaving.
 		ErrorLog.Notice ($"[AppleTV] {message}");
-		#endif
+#endif
 		}
 	}

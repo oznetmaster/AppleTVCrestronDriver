@@ -10,6 +10,10 @@ Both packages are released together from this repository under the same version 
 
 This changelog records shipped features, fixes, compatibility and runtime dependency changes. See [shared development and validation history](../DEVELOPMENT-HISTORY.md) for tests, CI, build tooling and work not yet released.
 
+## [1.5.1](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.1) - 2026-11-10
+
+- Release alongside Video Server 1.5.1, using AppleTVControlLibrary 2.2.8. Retain the existing bridge, pairing storage, app-launch commands and two-step Quick Actions.
+
 ## [1.5.0](https://github.com/oznetmaster/AppleTVCrestronDriver/releases/tag/v1.5.0) - 2026-11-07
 
 - Expose a separate parameterless Launch command for each installed app, with stable bundle-based IDs and refreshed labels/availability.

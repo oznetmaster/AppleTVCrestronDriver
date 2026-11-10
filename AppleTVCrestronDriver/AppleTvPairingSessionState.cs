@@ -15,7 +15,7 @@ namespace AppleTV.CrestronDriver;
 /// </summary>
 internal sealed record PairingTarget (string Address, int Port, string UniqueId, string Name)
 	{
-	internal static readonly PairingTarget Empty = new(string.Empty, 0, string.Empty, string.Empty);
+	internal static readonly PairingTarget Empty = new (string.Empty, 0, string.Empty, string.Empty);
 	}
 
 /// <summary>
@@ -34,7 +34,7 @@ internal sealed record PairingTarget (string Address, int Port, string UniqueId,
 /// </summary>
 internal sealed class AppleTvPairingSessionState
 	{
-	internal static readonly AppleTvPairingSessionState Instance = new();
+	internal static readonly AppleTvPairingSessionState Instance = new ();
 
 	private AppleTvPairingSessionState ()
 		{
@@ -45,8 +45,11 @@ internal sealed class AppleTvPairingSessionState
 	// also reinitialize the driver instance mid-handshake. This gate makes
 	// CompletePairingAsync wait for any in-flight BeginPairingAsync (on this
 	// or a recreated instance) to finish before it inspects Pairing.
-	internal readonly SemaphoreSlim Gate = new(1, 1);
-	internal AppleTvCompanionPairing Pairing { get; set; }
+	internal readonly SemaphoreSlim Gate = new (1, 1);
+	internal AppleTvCompanionPairing Pairing
+		{
+		get; set;
+		}
 
 	// The Apple TV identity (address/port/unique id/name) the active Pairing
 	// session was started for. Crestron Home replays AppleTvName (with its
@@ -66,14 +69,17 @@ internal sealed class AppleTvPairingSessionState
 	// serialized against the new instance's pairing/connect flow at all, so
 	// it can resume after pairing has already succeeded and overwrite the
 	// just-saved paired credentials with a stale, unpaired discovery record.
-	internal readonly SemaphoreSlim ConfigureGate = new(1, 1);
+	internal readonly SemaphoreSlim ConfigureGate = new (1, 1);
 
 	// Last observed PairNow attribute value, used to edge-trigger pairing
 	// (false -> true) instead of treating every True as a new request. This
 	// must live here rather than on AppleTvVideoServerProtocol because that
 	// protocol instance is itself recreated on every reinit; an instance
 	// field would reset to false and see a replayed True as a fresh edge.
-	internal bool LastPairNowValue { get; set; }
+	internal bool LastPairNowValue
+		{
+		get; set;
+		}
 
 	// Whether LastPairNowValue reflects a value actually observed from
 	// Crestron Home yet in this process's lifetime. Crestron Home persists
@@ -85,7 +91,10 @@ internal sealed class AppleTvPairingSessionState
 	// edge and silently kick off a real, unwanted pairing handshake on every
 	// startup. The first observed value, whatever it is, must only be
 	// recorded, never treated as a user request.
-	internal bool HasObservedPairNow { get; set; }
+	internal bool HasObservedPairNow
+		{
+		get; set;
+		}
 
 	// The protocol instance Crestron Home currently holds a live reference to
 	// (i.e. the one created by the most recent Initialize()). Crestron Home
@@ -103,7 +112,10 @@ internal sealed class AppleTvPairingSessionState
 	// to whichever protocol instance is actually current when the async work
 	// completes, instead of the possibly-stale instance captured when the
 	// chain started.
-	internal IAppleTvProtocol CurrentProtocol { get; set; }
+	internal IAppleTvProtocol CurrentProtocol
+		{
+		get; set;
+		}
 
 	// The AppleTvVideoServer driver instance Crestron Home currently holds a
 	// live reference to (mirrors CurrentProtocol, but for the driver object
@@ -115,7 +127,10 @@ internal sealed class AppleTvPairingSessionState
 	// started by an older instance must therefore route its status updates
 	// through whichever driver instance is actually current, or those
 	// updates are silently invisible even though the log shows them firing.
-	internal AppleTvVideoServer CurrentDriver { get; set; }
+	internal AppleTvVideoServer CurrentDriver
+		{
+		get; set;
+		}
 
 	// Cancels the previous driver instance's in-flight ConfigureAppleTvAsync
 	// pass (discovery scan and/or connect attempt) whenever Initialize() runs
@@ -129,7 +144,10 @@ internal sealed class AppleTvPairingSessionState
 	// static, like the other session state, because the old instance itself
 	// is about to be discarded and has no opportunity to cancel its own
 	// pending work once Crestron Home has moved on to the new instance.
-	internal CancellationTokenSource ConfigureCancellation { get; set; }
+	internal CancellationTokenSource ConfigureCancellation
+		{
+		get; set;
+		}
 
 	// A PairingPin that arrived while the protocol instance handling it was
 	// (or turned out to be) stale - i.e. no longer ReferenceEquals to
@@ -140,7 +158,10 @@ internal sealed class AppleTvPairingSessionState
 	// happens on the instance Crestron Home is actually watching, instead
 	// of relying on the stale instance to hand off a partially completed
 	// operation.
-	internal string PendingPairingPin { get; set; }
+	internal string PendingPairingPin
+		{
+		get; set;
+		}
 
 	/// <summary>
 	/// Ends the active pairing session, if any, and resets the pairing

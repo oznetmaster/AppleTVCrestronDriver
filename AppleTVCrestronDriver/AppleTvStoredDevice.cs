@@ -24,7 +24,10 @@ internal sealed class AppleTvStoredDevice
 
 	public string Address { get; set; } = string.Empty;
 
-	public int Port { get; set; }
+	public int Port
+		{
+		get; set;
+		}
 
 	public string Name { get; set; } = string.Empty;
 
@@ -115,16 +118,55 @@ internal sealed class AppleTvStoredDevice
 	[DataContract]
 	private sealed class StoredDeviceFile : IExtensibleDataObject
 		{
-		public ExtensionDataObject ExtensionData { get; set; }
-		[DataMember (Name = "Address")] public string Address { get; set; }
-		[DataMember (Name = "Port")] public int Port { get; set; }
-		[DataMember (Name = "Name")] public string Name { get; set; }
-		[DataMember (Name = "UniqueId")] public string UniqueId { get; set; }
-		[DataMember (Name = "StableIdentifier")] public string StableIdentifier { get; set; }
-		[DataMember (Name = "Ltpk")] public string Ltpk { get; set; }
-		[DataMember (Name = "Ltsk")] public string Ltsk { get; set; }
-		[DataMember (Name = "AtvId")] public string AtvId { get; set; }
-		[DataMember (Name = "ClientId")] public string ClientId { get; set; }
+		public ExtensionDataObject ExtensionData
+			{
+			get; set;
+			}
+		[DataMember (Name = "Address")]
+		public string Address
+			{
+			get; set;
+			}
+		[DataMember (Name = "Port")]
+		public int Port
+			{
+			get; set;
+			}
+		[DataMember (Name = "Name")]
+		public string Name
+			{
+			get; set;
+			}
+		[DataMember (Name = "UniqueId")]
+		public string UniqueId
+			{
+			get; set;
+			}
+		[DataMember (Name = "StableIdentifier")]
+		public string StableIdentifier
+			{
+			get; set;
+			}
+		[DataMember (Name = "Ltpk")]
+		public string Ltpk
+			{
+			get; set;
+			}
+		[DataMember (Name = "Ltsk")]
+		public string Ltsk
+			{
+			get; set;
+			}
+		[DataMember (Name = "AtvId")]
+		public string AtvId
+			{
+			get; set;
+			}
+		[DataMember (Name = "ClientId")]
+		public string ClientId
+			{
+			get; set;
+			}
 
 		internal static StoredDeviceFile FromStoredDevice (AppleTvStoredDevice device) => new ()
 			{

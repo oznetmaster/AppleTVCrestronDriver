@@ -28,7 +28,7 @@ namespace AppleTV.CrestronDriver;
 /// each candidate in the same order until one accepts.
 /// </remarks>
 internal static class AppleTvBridgePort
-{
+	{
 	// A deliberately narrow, high, rarely-used range that keeps generated ports away from both
 	// the well-known/registered range and common ephemeral-port collisions, while still leaving
 	// enough room (10000 values) that hash collisions between different Apple TVs are unlikely.
@@ -93,4 +93,4 @@ internal static class AppleTvBridgePort
 			yield return MIN_PORT + (int)offset;
 			}
 		}
-}
+	}

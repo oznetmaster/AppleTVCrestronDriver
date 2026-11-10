@@ -49,13 +49,25 @@ public static class AppleTvExtensionDriverLogic
 			Apps = apps;
 			}
 
-		public BridgeLineKind Kind { get; }
+		public BridgeLineKind Kind
+			{
+			get;
+			}
 
-		public bool BoolValue { get; }
+		public bool BoolValue
+			{
+			get;
+			}
 
-		public string StringValue { get; }
+		public string StringValue
+			{
+			get;
+			}
 
-		public List<(string BundleId, string Name)> Apps { get; }
+		public List<(string BundleId, string Name)> Apps
+			{
+			get;
+			}
 		}
 
 	/// <summary>
